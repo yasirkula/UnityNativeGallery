@@ -18,10 +18,9 @@ public class NativeGalleryTest : MonoBehaviour
 		Texture2D ss = new Texture2D( Screen.width, Screen.height, TextureFormat.RGB24, false );
 		ss.ReadPixels( new Rect( 0, 0, Screen.width, Screen.height ), 0, 0 );
 		ss.Apply();
-
-		// not overwritten on ios
+		
 		if( !b )
-			NativeGallery.SaveToGallery( ss, "GalleryTest", "overwrite" );
+			NativeGallery.SaveToGallery( ss, "GalleryTest", "overwrite.png" ); // not overwritten on iOS
 		else
 			NativeGallery.SaveToGallery( ss, "GalleryTest", "my img {0}.jpeg" );
 

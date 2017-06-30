@@ -55,10 +55,7 @@ public static class NativeGallery
 
 		string path = GetSavePath( directoryName, filenameFormatted );
 
-		if( File.Exists( path ) )
-			File.Delete( path );
-
-		File.Move( existingMediaPath, path );
+		File.Copy( existingMediaPath, path, true );
 
 		SaveToGallery( path, isImage );
 	}
@@ -102,14 +99,16 @@ public static class NativeGallery
 		{
 			AJC.CallStatic( "MediaScanFile", context, path );
 		}
+
+		Debug.Log( "Saved to gallery: " + path );
 #elif !UNITY_EDITOR && UNITY_IOS
 		if( isImage )
 	        _ScreenshotWriteToAlbum( path );
 		else
 			_VideoWriteToAlbum( path );
-#endif
 
-		Debug.Log( "Saved to gallery: " + path );
+		Debug.Log( "Saving to Pictures: " + Path.GetFileName( path ) );
+#endif
 	}
 
 	private static string GetSavePath( string directoryName, string filenameFormatted )
@@ -120,7 +119,7 @@ public static class NativeGallery
 #else
 		saveDir = Application.persistentDataPath;
 #endif
-
+		
 		if( filenameFormatted.Contains( "{0}" ) )
 		{
 			int fileIndex = 0;
@@ -133,6 +132,20 @@ public static class NativeGallery
 			return path;
 		}
 
-		return Path.Combine( saveDir, filenameFormatted );
+		saveDir = Path.Combine( saveDir, filenameFormatted );
+
+#if !UNITY_EDITOR && UNITY_IOS
+		// iOS internally copies images/videos to Photos directory of the system,
+		// but the process is async. The redundant file is deleted by objective-c code
+		// automatically after the media is saved but while it is being saved, the file
+		// should NOT be overwritten. Therefore, always ensure a unique filename on iOS
+		if( File.Exists( saveDir ) )
+		{
+			return GetSavePath( directoryName,
+				Path.GetFileNameWithoutExtension( filenameFormatted ) + " {0}" + Path.GetExtension( filenameFormatted ) );
+		}
+#endif
+
+		return saveDir;
 	}
 }
