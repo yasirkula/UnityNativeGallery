@@ -7,6 +7,7 @@ This plugin helps you save your images and/or videos to device **Gallery** on An
 
 ![PhotoLibraryUsageDescription](iOSPhotoLibraryPermission.png)
 
+- *for iOS*: also enter a **Photo Library Additions Usage Description**, if exists (see: https://github.com/yasirkula/UnityNativeGallery/issues/3)
 - That's it; lol!
 
 ## How To
