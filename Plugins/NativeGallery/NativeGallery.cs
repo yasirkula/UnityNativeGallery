@@ -1,0 +1,254 @@
+﻿using System;
+using System.IO;
+using System.Threading;
+using UnityEngine;
+
+public static class NativeGallery
+{
+	public enum Permission { Denied = 0, Granted = 1, ShouldAsk = 2 };
+	
+#if !UNITY_EDITOR && UNITY_ANDROID
+	private static AndroidJavaClass m_ajc = null;
+	private static AndroidJavaClass AJC
+	{
+		get
+		{
+			if( m_ajc == null )
+				m_ajc = new AndroidJavaClass( "com.yasirkula.unity.NativeGallery" );
+
+			return m_ajc;
+		}
+	}
+
+	private static AndroidJavaObject m_context = null;
+	private static AndroidJavaObject Context
+	{
+		get
+		{
+			if( m_context == null )
+			{
+				using( AndroidJavaObject unityClass = new AndroidJavaClass( "com.unity3d.player.UnityPlayer" ) )
+				{
+					m_context = unityClass.GetStatic<AndroidJavaObject>( "currentActivity" );
+				}
+			}
+
+			return m_context;
+		}
+	}
+#elif !UNITY_EDITOR && UNITY_IOS
+	[System.Runtime.InteropServices.DllImport( "__Internal" )]
+	private static extern int _CheckPermission();
+
+	[System.Runtime.InteropServices.DllImport( "__Internal" )]
+	private static extern int _RequestPermission();
+
+	[System.Runtime.InteropServices.DllImport( "__Internal" )]
+	private static extern int _CanOpenSettings();
+
+	[System.Runtime.InteropServices.DllImport( "__Internal" )]
+	private static extern void _OpenSettings();
+
+	[System.Runtime.InteropServices.DllImport( "__Internal" )]
+	private static extern void _ImageWriteToAlbum( string path, string album );
+
+	[System.Runtime.InteropServices.DllImport( "__Internal" )]
+	private static extern void _VideoWriteToAlbum( string path, string album );
+#endif
+
+	public static Permission CheckPermission()
+	{
+#if !UNITY_EDITOR && UNITY_ANDROID
+		Permission result = (Permission) AJC.CallStatic<int>( "CheckPermission", Context );
+		if( result == Permission.Denied && (Permission) PlayerPrefs.GetInt( "NativeGalleryPermission", (int) Permission.ShouldAsk ) == Permission.ShouldAsk )
+			result = Permission.ShouldAsk;
+
+		return result;
+#elif !UNITY_EDITOR && UNITY_IOS
+		return (Permission) _CheckPermission();
+#else
+		return Permission.Granted;
+#endif
+	}
+
+	public static Permission RequestPermission()
+	{
+#if !UNITY_EDITOR && UNITY_ANDROID
+		object threadLock = new object();
+		lock( threadLock )
+		{
+			NativeGalleryAndroidCallback nativeCallback = new NativeGalleryAndroidCallback( threadLock );
+
+			AJC.CallStatic( "RequestPermission", Context, nativeCallback, PlayerPrefs.GetInt( "NativeGalleryPermission", (int) Permission.ShouldAsk ) );
+
+			if( nativeCallback.Result == -1 )
+				Monitor.Wait( threadLock );
+
+			if( (Permission) nativeCallback.Result != Permission.ShouldAsk && PlayerPrefs.GetInt( "NativeGalleryPermission", -1 ) != nativeCallback.Result )
+			{
+				PlayerPrefs.SetInt( "NativeGalleryPermission", nativeCallback.Result );
+				PlayerPrefs.Save();
+			}
+
+			return (Permission) nativeCallback.Result;
+		}
+#elif !UNITY_EDITOR && UNITY_IOS
+		return (Permission) _RequestPermission();
+#else
+		return Permission.Granted;
+#endif
+	}
+
+	public static bool CanOpenSettings()
+	{
+#if !UNITY_EDITOR && UNITY_IOS
+		return _CanOpenSettings() == 1;
+#else
+		return true;
+#endif
+	}
+
+	public static void OpenSettings()
+	{
+#if !UNITY_EDITOR && UNITY_ANDROID
+		AJC.CallStatic( "OpenSettings", Context );
+#elif !UNITY_EDITOR && UNITY_IOS
+		_OpenSettings();
+#endif
+	}
+
+	public static Permission SaveImageToGallery( byte[] mediaBytes, string album, string filenameFormatted )
+	{
+		return SaveToGallery( mediaBytes, album, filenameFormatted, true );
+	}
+
+	public static Permission SaveImageToGallery( string existingMediaPath, string album, string filenameFormatted )
+	{
+		return SaveToGallery( existingMediaPath, album, filenameFormatted, true );
+	}
+
+	public static Permission SaveImageToGallery( Texture2D image, string album, string filenameFormatted )
+	{
+		if( image == null )
+			throw new ArgumentException( "Parameter 'image' is null!" );
+
+		if( filenameFormatted.EndsWith( ".jpeg" ) || filenameFormatted.EndsWith( ".jpg" ) )
+			return SaveToGallery( image.EncodeToJPG( 100 ), album, filenameFormatted, true );
+		else if( filenameFormatted.EndsWith( ".png" ) )
+			return SaveToGallery( image.EncodeToPNG(), album, filenameFormatted, true );
+		else
+			return SaveToGallery( image.EncodeToPNG(), album, filenameFormatted + ".png", true );
+	}
+
+	public static Permission SaveVideoToGallery( byte[] mediaBytes, string album, string filenameFormatted )
+	{
+		return SaveToGallery( mediaBytes, album, filenameFormatted, false );
+	}
+
+	public static Permission SaveVideoToGallery( string existingMediaPath, string album, string filenameFormatted )
+	{
+		return SaveToGallery( existingMediaPath, album, filenameFormatted, false );
+	}
+
+	private static Permission SaveToGallery( byte[] mediaBytes, string album, string filenameFormatted, bool isImage )
+	{
+		Permission result = RequestPermission();
+		if( result == Permission.Granted )
+		{
+			if( mediaBytes == null || mediaBytes.Length == 0 )
+				throw new ArgumentException( "Parameter 'mediaBytes' is null or empty!" );
+
+			if( album == null || album.Length == 0 )
+				throw new ArgumentException( "Parameter 'album' is null or empty!" );
+
+			if( filenameFormatted == null || filenameFormatted.Length == 0 )
+				throw new ArgumentException( "Parameter 'filenameFormatted' is null or empty!" );
+
+			string path = GetSavePath( album, filenameFormatted );
+
+			File.WriteAllBytes( path, mediaBytes );
+
+			SaveToGalleryInternal( path, album, isImage );
+		}
+
+		return result;
+	}
+
+	private static Permission SaveToGallery( string existingMediaPath, string album, string filenameFormatted, bool isImage )
+	{
+		Permission result = RequestPermission();
+		if( result == Permission.Granted )
+		{
+			if( !File.Exists( existingMediaPath ) )
+				throw new FileNotFoundException( "File not found at " + existingMediaPath );
+
+			if( album == null || album.Length == 0 )
+				throw new ArgumentException( "Parameter 'album' is null or empty!" );
+
+			if( filenameFormatted == null || filenameFormatted.Length == 0 )
+				throw new ArgumentException( "Parameter 'filenameFormatted' is null or empty!" );
+
+			string path = GetSavePath( album, filenameFormatted );
+
+			File.Copy( existingMediaPath, path, true );
+
+			SaveToGalleryInternal( path, album, isImage );
+		}
+
+		return result;
+	}
+
+	private static void SaveToGalleryInternal( string path, string album, bool isImage )
+	{
+#if !UNITY_EDITOR && UNITY_ANDROID
+		AJC.CallStatic( "MediaScanFile", Context, path );
+
+		Debug.Log( "Saved to gallery: " + path );
+#elif !UNITY_EDITOR && UNITY_IOS
+		if( isImage )
+			_ImageWriteToAlbum( path, album );
+		else
+			_VideoWriteToAlbum( path, album );
+
+		Debug.Log( "Saving to Pictures: " + Path.GetFileName( path ) );
+#endif
+	}
+
+	private static string GetSavePath( string album, string filenameFormatted )
+	{
+		string saveDir;
+#if !UNITY_EDITOR && UNITY_ANDROID
+		saveDir = AJC.CallStatic<string>( "GetMediaPath", album );
+#else
+		saveDir = Application.persistentDataPath;
+#endif
+		
+		if( filenameFormatted.Contains( "{0}" ) )
+		{
+			int fileIndex = 0;
+			string path;
+			do
+			{
+				path = Path.Combine( saveDir, string.Format( filenameFormatted, ++fileIndex ) );
+			} while( File.Exists( path ) );
+
+			return path;
+		}
+
+		saveDir = Path.Combine( saveDir, filenameFormatted );
+
+#if !UNITY_EDITOR && UNITY_IOS
+		// iOS internally copies images/videos to Photos directory of the system,
+		// but the process is async. The redundant file is deleted by objective-c code
+		// automatically after the media is saved but while it is being saved, the file
+		// should NOT be overwritten. Therefore, always ensure a unique filename on iOS
+		if( File.Exists( saveDir ) )
+		{
+			return GetSavePath( album,
+				Path.GetFileNameWithoutExtension( filenameFormatted ) + " {0}" + Path.GetExtension( filenameFormatted ) );
+		}
+#endif
+
+		return saveDir;
+	}
+}
