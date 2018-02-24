@@ -1,7 +1,14 @@
 #import <Foundation/Foundation.h>
 #import <Photos/Photos.h>
+#import <MobileCoreServices/UTCoreTypes.h>
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < 80000
 #import <AssetsLibrary/AssetsLibrary.h>
+#endif
+
+#ifdef UNITY_4_0 || UNITY_5_0
+#import "iPhone_View.h"
+#else
+extern UIViewController* UnityGetGLViewController();
 #endif
 
 @interface UNativeGallery:NSObject
@@ -10,9 +17,13 @@
 + (int)canOpenSettings;
 + (void)openSettings;
 + (void)saveMedia:(NSString *)path albumName:(NSString *)album isImg:(BOOL)isImg;
++ (void)pickMedia:(BOOL)imageMode savePath:(NSString *)imageSavePath;
 @end
 
 @implementation UNativeGallery
+
+static NSString *pickedMediaSavePath;
+static UIPopoverController *popup;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -268,6 +279,83 @@
 	}
 }
 
+// Credit: https://stackoverflow.com/a/10531752/2373034
++ (void)pickMedia:(BOOL)imageMode savePath:(NSString *)imageSavePath {
+	UIImagePickerController *picker = [[UIImagePickerController alloc] init];
+    picker.delegate = self;
+    picker.allowsEditing = NO;
+	picker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
+	
+	if (imageMode)
+		picker.mediaTypes = [NSArray arrayWithObject:(NSString *)kUTTypeImage];
+	else
+		picker.mediaTypes = [NSArray arrayWithObjects:(NSString *)kUTTypeMovie, (NSString *)kUTTypeVideo, nil];
+	
+	pickedMediaSavePath = imageSavePath;
+	
+	UIViewController *rootViewController = UnityGetGLViewController();
+	if( UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone ) // iPhone
+	{
+		[rootViewController presentViewController:picker animated:YES completion:nil];
+	}
+	else // iPad
+	{
+		popup = [[UIPopoverController alloc] initWithContentViewController:picker];
+		popup.delegate = self;
+		[popup presentPopoverFromRect:CGRectMake( rootViewController.view.frame.size.width / 2, rootViewController.view.frame.size.height / 4, 0, 0 ) inView:rootViewController.view permittedArrowDirections:UIPopoverArrowDirectionAny animated:YES];
+	}
+}
+
++ (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary *)info {
+	NSString *path;
+	if( info[UIImagePickerControllerMediaType] == (NSString *)kUTTypeImage ) // image picked
+	{
+		// Temporarily save image as PNG
+		UIImage *image = info[UIImagePickerControllerOriginalImage];
+		if (image == nil)
+			path = nil;
+		else
+		{
+			[UIImagePNGRepresentation(image) writeToFile:pickedMediaSavePath atomically:YES];
+			path = pickedMediaSavePath;
+		}
+	}
+	else // video picked
+	{
+		NSURL *mediaUrl = info[UIImagePickerControllerMediaURL] ?: info[UIImagePickerControllerReferenceURL];
+		if (mediaUrl == nil)
+			path = nil;
+		else
+			path = [mediaUrl path];
+	}
+
+	if (path == nil)
+		path = @"";
+		
+	// Credit: https://stackoverflow.com/a/37052118/2373034
+	const char *pathUTF8 = [path UTF8String];
+	char *result = (char*) malloc(strlen(pathUTF8) + 1);
+	strcpy(result, pathUTF8);
+
+	popup = nil;
+	UnitySendMessage("NGMediaReceiveCallbackiOS", "OnMediaReceived", result);
+
+	[picker dismissViewControllerAnimated:YES completion:nil];
+}
+
++ (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker
+{
+	popup = nil;
+	UnitySendMessage("NGMediaReceiveCallbackiOS", "OnMediaReceived", "");
+	
+	[picker dismissViewControllerAnimated:YES completion:nil];
+}
+
++ (void) popoverControllerDidDismissPopover:(UIPopoverController *) popoverController {
+	popup = nil;
+    UnitySendMessage("NGMediaReceiveCallbackiOS", "OnMediaReceived", "");
+}
+
 @end
 
 extern "C" int _CheckPermission() {
@@ -292,4 +380,12 @@ extern "C" void _ImageWriteToAlbum(const char* path, const char* album) {
 
 extern "C" void _VideoWriteToAlbum(const char* path, const char* album) {
 	[UNativeGallery saveMedia:[NSString stringWithUTF8String:path] albumName:[NSString stringWithUTF8String:album] isImg:NO];
+}
+
+extern "C" void _PickImage(const char* imageSavePath) {
+	[UNativeGallery pickMedia:YES savePath:[NSString stringWithUTF8String:imageSavePath]];
+}
+
+extern "C" void _PickVideo() {
+	[UNativeGallery pickMedia:NO savePath:nil];
 }

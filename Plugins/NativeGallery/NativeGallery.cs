@@ -1,12 +1,13 @@
 ﻿using System;
 using System.IO;
-using System.Threading;
 using UnityEngine;
+using NativeGalleryNamespace;
 
 public static class NativeGallery
 {
 	public enum Permission { Denied = 0, Granted = 1, ShouldAsk = 2 };
-	
+	public delegate void MediaPickCallback( string path );
+
 #if !UNITY_EDITOR && UNITY_ANDROID
 	private static AndroidJavaClass m_ajc = null;
 	private static AndroidJavaClass AJC
@@ -54,6 +55,12 @@ public static class NativeGallery
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
 	private static extern void _VideoWriteToAlbum( string path, string album );
+
+	[System.Runtime.InteropServices.DllImport( "__Internal" )]
+	private static extern void _PickImage( string imageSavePath );
+
+	[System.Runtime.InteropServices.DllImport( "__Internal" )]
+	private static extern void _PickVideo();
 #endif
 
 	public static Permission CheckPermission()
@@ -77,12 +84,12 @@ public static class NativeGallery
 		object threadLock = new object();
 		lock( threadLock )
 		{
-			NativeGalleryAndroidCallback nativeCallback = new NativeGalleryAndroidCallback( threadLock );
+			NGPermissionCallbackAndroid nativeCallback = new NGPermissionCallbackAndroid( threadLock );
 
 			AJC.CallStatic( "RequestPermission", Context, nativeCallback, PlayerPrefs.GetInt( "NativeGalleryPermission", (int) Permission.ShouldAsk ) );
 
 			if( nativeCallback.Result == -1 )
-				Monitor.Wait( threadLock );
+				System.Threading.Monitor.Wait( threadLock );
 
 			if( (Permission) nativeCallback.Result != Permission.ShouldAsk && PlayerPrefs.GetInt( "NativeGalleryPermission", -1 ) != nativeCallback.Result )
 			{
@@ -149,6 +156,25 @@ public static class NativeGallery
 	{
 		return SaveToGallery( existingMediaPath, album, filenameFormatted, false );
 	}
+	
+	public static Permission GetImageFromGallery( MediaPickCallback callback, string title = "", string mime = "image/*" )
+	{
+		return GetMediaFromGallery( callback, true, mime, title );
+	}
+
+	public static Permission GetVideoFromGallery( MediaPickCallback callback, string title = "", string mime = "video/*" )
+	{
+		return GetMediaFromGallery( callback, false, mime, title );
+	}
+
+	public static bool IsMediaPickerBusy()
+	{
+#if !UNITY_EDITOR && UNITY_IOS
+		return NGMediaReceiveCallbackiOS.IsBusy;
+#else
+		return false;
+#endif
+	}
 
 	private static Permission SaveToGallery( byte[] mediaBytes, string album, string filenameFormatted, bool isImage )
 	{
@@ -203,7 +229,7 @@ public static class NativeGallery
 #if !UNITY_EDITOR && UNITY_ANDROID
 		AJC.CallStatic( "MediaScanFile", Context, path );
 
-		Debug.Log( "Saved to gallery: " + path );
+		Debug.Log( "Saving to gallery: " + path );
 #elif !UNITY_EDITOR && UNITY_IOS
 		if( isImage )
 			_ImageWriteToAlbum( path, album );
@@ -250,5 +276,43 @@ public static class NativeGallery
 #endif
 
 		return saveDir;
+	}
+
+	private static Permission GetMediaFromGallery( MediaPickCallback callback, bool imageMode, string mime, string title )
+	{
+		Permission result = RequestPermission();
+		if( result == Permission.Granted && !IsMediaPickerBusy() )
+		{
+#if !UNITY_EDITOR && UNITY_ANDROID
+			object threadLock = new object();
+			lock( threadLock )
+			{
+				NGMediaReceiveCallbackAndroid nativeCallback = new NGMediaReceiveCallbackAndroid( threadLock );
+
+				AJC.CallStatic( "PickMedia", Context, nativeCallback, imageMode, mime, title );
+
+				if( string.IsNullOrEmpty( nativeCallback.Path ) )
+					System.Threading.Monitor.Wait( threadLock );
+
+				string path = nativeCallback.Path;
+				if( string.IsNullOrEmpty( path ) )
+					path = null;
+
+				if( callback != null )
+					callback( path );
+			}
+#elif !UNITY_EDITOR && UNITY_IOS
+			NGMediaReceiveCallbackiOS.Initialize( callback );
+			if( imageMode )
+				_PickImage( Path.Combine( Application.temporaryCachePath, "tmp.png" ) );
+			else
+				_PickVideo();
+#else
+			if( callback != null )
+				callback( null );
+#endif
+		}
+
+		return result;
 	}
 }

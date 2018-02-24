@@ -50,6 +50,18 @@ public class NativeGallery
 			context.getContentResolver().delete( MediaStore.Video.Media.EXTERNAL_CONTENT_URI, MediaStore.Video.Media.DATA + "=?", new String[] { path } );
 	}
 
+	public static void PickMedia( Context context, final NativeGalleryMediaReceiver mediaReceiver, boolean imageMode, String mime, String title )
+	{
+		if( CheckPermission( context ) != 1 )
+		{
+			mediaReceiver.OnMediaReceived( "" );
+			return;
+		}
+
+		final Fragment request = new NativeGalleryMediaPickerFragment( mediaReceiver, imageMode, mime, title );
+		( (Activity) context ).getFragmentManager().beginTransaction().add( 0, request ).commit();
+	}
+
 	public static int CheckPermission( Context context )
 	{
 		if( Build.VERSION.SDK_INT < Build.VERSION_CODES.M )
@@ -85,7 +97,7 @@ public class NativeGallery
 		}
 
 		final Fragment request = new NativeGalleryPermissionFragment( permissionReceiver );
-		( (Activity) context ).getFragmentManager().beginTransaction().add(0, request).commit();
+		( (Activity) context ).getFragmentManager().beginTransaction().add( 0, request ).commit();
 	}
 
 	// Credit: https://stackoverflow.com/a/35456817/2373034
