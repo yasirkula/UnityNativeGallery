@@ -18,12 +18,15 @@ extern UIViewController* UnityGetGLViewController();
 + (void)openSettings;
 + (void)saveMedia:(NSString *)path albumName:(NSString *)album isImg:(BOOL)isImg;
 + (void)pickMedia:(BOOL)imageMode savePath:(NSString *)imageSavePath;
++ (int)isMediaPickerBusy;
 @end
 
 @implementation UNativeGallery
 
 static NSString *pickedMediaSavePath;
 static UIPopoverController *popup;
+static UIImagePickerController *imagePicker;
+static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this state on iPad), 2 -> finished
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -281,47 +284,58 @@ static UIPopoverController *popup;
 
 // Credit: https://stackoverflow.com/a/10531752/2373034
 + (void)pickMedia:(BOOL)imageMode savePath:(NSString *)imageSavePath {
-	UIImagePickerController *picker = [[UIImagePickerController alloc] init];
-    picker.delegate = self;
-    picker.allowsEditing = NO;
-	picker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
+	imagePicker = [[UIImagePickerController alloc] init];
+    imagePicker.delegate = self;
+    imagePicker.allowsEditing = NO;
+	imagePicker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
 	
 	if (imageMode)
-		picker.mediaTypes = [NSArray arrayWithObject:(NSString *)kUTTypeImage];
+		imagePicker.mediaTypes = [NSArray arrayWithObject:(NSString *)kUTTypeImage];
 	else
-		picker.mediaTypes = [NSArray arrayWithObjects:(NSString *)kUTTypeMovie, (NSString *)kUTTypeVideo, nil];
+		imagePicker.mediaTypes = [NSArray arrayWithObjects:(NSString *)kUTTypeMovie, (NSString *)kUTTypeVideo, nil];
 	
 	pickedMediaSavePath = imageSavePath;
 	
+	imagePickerState = 1;
 	UIViewController *rootViewController = UnityGetGLViewController();
-	if( UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone ) // iPhone
-	{
-		[rootViewController presentViewController:picker animated:YES completion:nil];
-	}
-	else // iPad
-	{
-		popup = [[UIPopoverController alloc] initWithContentViewController:picker];
+	if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone) // iPhone
+		[rootViewController presentViewController:imagePicker animated:YES completion:^{ imagePickerState = 0; }];
+	else { // iPad
+		popup = [[UIPopoverController alloc] initWithContentViewController:imagePicker];
 		popup.delegate = self;
 		[popup presentPopoverFromRect:CGRectMake( rootViewController.view.frame.size.width / 2, rootViewController.view.frame.size.height / 4, 0, 0 ) inView:rootViewController.view permittedArrowDirections:UIPopoverArrowDirectionAny animated:YES];
 	}
 }
 
++ (int)isMediaPickerBusy {
+	if (imagePickerState == 2)
+		return 1;
+	
+	if (imagePicker != nil) {
+		if (imagePickerState == 1 || [imagePicker presentingViewController] == UnityGetGLViewController())
+			return 1;
+		else {
+			imagePicker = nil;
+			return 0;
+		}
+	}
+	else
+		return 0;
+}
+
 + (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary *)info {
 	NSString *path;
-	if( info[UIImagePickerControllerMediaType] == (NSString *)kUTTypeImage ) // image picked
-	{
+	if ([info[UIImagePickerControllerMediaType] isEqualToString:(NSString *)kUTTypeImage]) { // image picked
 		// Temporarily save image as PNG
 		UIImage *image = info[UIImagePickerControllerOriginalImage];
 		if (image == nil)
 			path = nil;
-		else
-		{
+		else {
 			[UIImagePNGRepresentation(image) writeToFile:pickedMediaSavePath atomically:YES];
 			path = pickedMediaSavePath;
 		}
 	}
-	else // video picked
-	{
+	else { // video picked
 		NSURL *mediaUrl = info[UIImagePickerControllerMediaURL] ?: info[UIImagePickerControllerReferenceURL];
 		if (mediaUrl == nil)
 			path = nil;
@@ -338,6 +352,8 @@ static UIPopoverController *popup;
 	strcpy(result, pathUTF8);
 
 	popup = nil;
+	imagePicker = nil;
+	imagePickerState = 2;
 	UnitySendMessage("NGMediaReceiveCallbackiOS", "OnMediaReceived", result);
 
 	[picker dismissViewControllerAnimated:YES completion:nil];
@@ -346,6 +362,7 @@ static UIPopoverController *popup;
 + (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker
 {
 	popup = nil;
+	imagePicker = nil;
 	UnitySendMessage("NGMediaReceiveCallbackiOS", "OnMediaReceived", "");
 	
 	[picker dismissViewControllerAnimated:YES completion:nil];
@@ -353,6 +370,7 @@ static UIPopoverController *popup;
 
 + (void) popoverControllerDidDismissPopover:(UIPopoverController *) popoverController {
 	popup = nil;
+	imagePicker = nil;
     UnitySendMessage("NGMediaReceiveCallbackiOS", "OnMediaReceived", "");
 }
 
@@ -388,4 +406,8 @@ extern "C" void _PickImage(const char* imageSavePath) {
 
 extern "C" void _PickVideo() {
 	[UNativeGallery pickMedia:NO savePath:nil];
+}
+
+extern "C" int _IsMediaPickerBusy() {
+	return [UNativeGallery isMediaPickerBusy];
 }
