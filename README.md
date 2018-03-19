@@ -8,16 +8,25 @@ This plugin helps you save your images and/or videos to device **Gallery** on An
 
 - Import **NativeGallery.unitypackage** to your project
 - *for Android*: set **Write Permission** to **External (SDCard)** in **Player Settings**
-- *for iOS*: enter a **Photo Library Usage Description** in Xcode
+- *for iOS*: there are two ways to set up the plugin on iOS:
+
+#### a. Automated Setup for iOS
+- change the value of **PHOTO_LIBRARY_USAGE_DESCRIPTION** in *Plugins/NativeGallery/Editor/NGPostProcessBuild.cs* (optional)
+- if your minimum *Deployment Target* (iOS Version) is at least 8.0, set the value of **MINIMUM_TARGET_8_OR_ABOVE** to *true* in *NGPostProcessBuild.cs*
+
+#### b. Manual Setup for iOS
+- set the value of **ENABLED** to *false* in *NGPostProcessBuild.cs*
+- build your project
+- enter a **Photo Library Usage Description** in Xcode
 
 ![PhotoLibraryUsageDescription](screenshots/1.png)
 
-- *for iOS*: also enter a **Photo Library Additions Usage Description**, if exists (see: https://github.com/yasirkula/UnityNativeGallery/issues/3)
-- *for iOS*: insert `-weak_framework Photos -framework AssetsLibrary -framework MobileCoreServices` to the **Other Linker Flags** of *Unity-iPhone Target* (if your **Deployment Target** is at least 8.0, it is sufficient to insert `-framework Photos -framework MobileCoreServices`):
+- also enter a **Photo Library Additions Usage Description**, if exists (see: https://github.com/yasirkula/UnityNativeGallery/issues/3)
+- insert `-weak_framework Photos -framework AssetsLibrary -framework MobileCoreServices` to the **Other Linker Flags** of *Unity-iPhone Target* (if your **Deployment Target** is at least 8.0, it is sufficient to insert `-framework Photos -framework MobileCoreServices`):
 
 ![OtherLinkerFlags](screenshots/2.png)
 
-- *for iOS*: lastly, remove *Photos.framework* from **Link Binary With Libraries** of *Unity-iPhone Target* in **Build Phases**, if exists
+- lastly, remove *Photos.framework* from **Link Binary With Libraries** of *Unity-iPhone Target* in **Build Phases**, if exists
 
 ## Upgrading From Previous Versions
 Delete *Plugins/NativeGallery.cs*, *Plugins/Android/NativeGallery.jar* and *Plugins/iOS/NativeGallery.mm* before upgrading the plugin.
