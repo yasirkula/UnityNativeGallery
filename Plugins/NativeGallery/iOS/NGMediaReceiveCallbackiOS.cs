@@ -2,12 +2,19 @@
 
 namespace NativeGalleryNamespace
 {
-	public class NGMediaReceiveCallbackiOS : MonoBehaviour
+	public class NGMediaReceiveCallbackiOS
+#if UNITY_IOS
+	: MonoBehaviour
 	{
 		private static NGMediaReceiveCallbackiOS instance;
 		private NativeGallery.MediaPickCallback callback;
 
+		private float nextBusyCheckTime;
+
 		public static bool IsBusy { get; private set; }
+		
+		[System.Runtime.InteropServices.DllImport( "__Internal" )]
+		private static extern int _IsMediaPickerBusy();
 
 		public static void Initialize( NativeGallery.MediaPickCallback callback )
 		{
@@ -22,7 +29,30 @@ namespace NativeGalleryNamespace
 
 			instance.callback = callback;
 
+			instance.nextBusyCheckTime = Time.realtimeSinceStartup + 1f;
 			IsBusy = true;
+		}
+		
+		private void Update()
+		{
+			if( IsBusy )
+			{
+				if( Time.realtimeSinceStartup >= nextBusyCheckTime )
+				{
+					nextBusyCheckTime = Time.realtimeSinceStartup + 1f;
+
+					if( _IsMediaPickerBusy() == 0 )
+					{
+						if( callback != null )
+						{
+							callback( null );
+							callback = null;
+						}
+
+						IsBusy = false;
+					}
+				}
+			}
 		}
 
 		public void OnMediaReceived( string path )
@@ -39,4 +69,7 @@ namespace NativeGalleryNamespace
 			IsBusy = false;
 		}
 	}
+#else
+	{ }
+#endif
 }

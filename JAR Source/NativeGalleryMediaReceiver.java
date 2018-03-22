@@ -7,4 +7,5 @@ package com.yasirkula.unity;
 public interface NativeGalleryMediaReceiver
 {
 	void OnMediaReceived( String path );
+	void OnMultipleMediaReceived( String paths );
 }

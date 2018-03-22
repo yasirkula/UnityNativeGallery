@@ -6,7 +6,9 @@ using NativeGalleryNamespace;
 public static class NativeGallery
 {
 	public enum Permission { Denied = 0, Granted = 1, ShouldAsk = 2 };
+
 	public delegate void MediaPickCallback( string path );
+	public delegate void MediaPickMultipleCallback( string[] paths );
 
 #if !UNITY_EDITOR && UNITY_ANDROID
 	private static AndroidJavaClass m_ajc = null;
@@ -156,7 +158,16 @@ public static class NativeGallery
 	{
 		return SaveToGallery( existingMediaPath, album, filenameFormatted, false );
 	}
-	
+
+	public static bool CanSelectMultipleFilesFromGallery()
+	{
+#if !UNITY_EDITOR && UNITY_ANDROID
+		return AJC.CallStatic<bool>( "CanSelectMultipleMedia" );
+#else
+		return false;
+#endif
+	}
+
 	public static Permission GetImageFromGallery( MediaPickCallback callback, string title = "", string mime = "image/*" )
 	{
 		return GetMediaFromGallery( callback, true, mime, title );
@@ -165,6 +176,16 @@ public static class NativeGallery
 	public static Permission GetVideoFromGallery( MediaPickCallback callback, string title = "", string mime = "video/*" )
 	{
 		return GetMediaFromGallery( callback, false, mime, title );
+	}
+
+	public static Permission GetImagesFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "image/*" )
+	{
+		return GetMultipleMediaFromGallery( callback, true, mime, title );
+	}
+
+	public static Permission GetVideosFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "video/*" )
+	{
+		return GetMultipleMediaFromGallery( callback, false, mime, title );
 	}
 
 	public static bool IsMediaPickerBusy()
@@ -289,7 +310,7 @@ public static class NativeGallery
 			{
 				NGMediaReceiveCallbackAndroid nativeCallback = new NGMediaReceiveCallbackAndroid( threadLock );
 
-				AJC.CallStatic( "PickMedia", Context, nativeCallback, imageMode, mime, title );
+				AJC.CallStatic( "PickMedia", Context, nativeCallback, imageMode, false, mime, title );
 
 				if( string.IsNullOrEmpty( nativeCallback.Path ) )
 					System.Threading.Monitor.Wait( threadLock );
@@ -311,6 +332,43 @@ public static class NativeGallery
 			if( callback != null )
 				callback( null );
 #endif
+		}
+
+		return result;
+	}
+
+	private static Permission GetMultipleMediaFromGallery( MediaPickMultipleCallback callback, bool imageMode, string mime, string title )
+	{
+		Permission result = RequestPermission();
+		if( result == Permission.Granted && !IsMediaPickerBusy() )
+		{
+			if( CanSelectMultipleFilesFromGallery() )
+			{
+#if !UNITY_EDITOR && UNITY_ANDROID
+				object threadLock = new object();
+				lock( threadLock )
+				{
+					NGMediaReceiveCallbackAndroid nativeCallback = new NGMediaReceiveCallbackAndroid( threadLock );
+
+					AJC.CallStatic( "PickMedia", Context, nativeCallback, imageMode, true, mime, title );
+
+					if( nativeCallback.Paths == null )
+						System.Threading.Monitor.Wait( threadLock );
+
+					string[] paths = nativeCallback.Paths;
+					if( paths != null && paths.Length == 0 )
+						paths = null;
+
+					if( callback != null )
+						callback( paths );
+				}
+#else
+				if( callback != null )
+					callback( null );
+#endif
+			}
+			else if( callback != null )
+				callback( null );
 		}
 
 		return result;

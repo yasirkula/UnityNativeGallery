@@ -50,15 +50,19 @@ public class NativeGallery
 			context.getContentResolver().delete( MediaStore.Video.Media.EXTERNAL_CONTENT_URI, MediaStore.Video.Media.DATA + "=?", new String[] { path } );
 	}
 
-	public static void PickMedia( Context context, final NativeGalleryMediaReceiver mediaReceiver, boolean imageMode, String mime, String title )
+	public static void PickMedia( Context context, final NativeGalleryMediaReceiver mediaReceiver, boolean imageMode, boolean selectMultiple, String mime, String title )
 	{
 		if( CheckPermission( context ) != 1 )
 		{
-			mediaReceiver.OnMediaReceived( "" );
+			if( !selectMultiple )
+				mediaReceiver.OnMediaReceived( "" );
+			else
+				mediaReceiver.OnMultipleMediaReceived( "" );
+
 			return;
 		}
 
-		final Fragment request = new NativeGalleryMediaPickerFragment( mediaReceiver, imageMode, mime, title );
+		final Fragment request = new NativeGalleryMediaPickerFragment( mediaReceiver, imageMode, selectMultiple, mime, title );
 		( (Activity) context ).getFragmentManager().beginTransaction().add( 0, request ).commit();
 	}
 
@@ -108,5 +112,10 @@ public class NativeGallery
 		Uri uri = Uri.fromParts( "package", context.getPackageName(), null );
 		intent.setData( uri );
 		context.startActivity( intent );
+	}
+
+	public static boolean CanSelectMultipleMedia()
+	{
+		return Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2;
 	}
 }
