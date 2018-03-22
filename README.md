@@ -45,11 +45,13 @@ Delete *Plugins/NativeGallery.cs*, *Plugins/Android/NativeGallery.jar* and *Plug
 
 `NativeGallery.SaveVideoToGallery( string existingMediaPath, string album, string filenameFormatted )`: use this function if the video is already saved on disk. This function works similar to its *SaveImageToGallery* equivalent.
 
+`NativeGallery.SetGameObject( GameObject _callbackGameObject )`: if you set gameObject, you can get callback `OnSaveMediaComplete( string dummy )` on success, `OnSaveMediaError( string errMsg )` on error (optional)
+
 ### B. Retrieving Media From Gallery/Photos
 `NativeGallery.GetImageFromGallery( MediaPickCallback callback, string title = "", string mime = "image/*" )`: prompts the user to select an image from Gallery/Photos.
 - This operation is **asynchronous**! After user selects an image or cancels the operation, the **callback** is called (on main thread). **MediaPickCallback** takes a *string* parameter which stores the path of the selected image, or *null* if nothing is selected
 - **title** determines the title of the image picker dialog on Android. Has no effect on iOS
-- **mime** filters the available images on Android. For example, to request a *JPEG* image from the user, mime can be set as "image/jpeg". Setting multiple mime types is not possible (in that case, you should leave mime as "image/*"). **On iOS, the selected image will always be in PNG format** and thus, this parameter has no effect on iOS 
+- **mime** filters the available images on Android. For example, to request a *JPEG* image from the user, mime can be set as "image/jpeg". Setting multiple mime types is not possible (in that case, you should leave mime as "image/\*"). **On iOS, the selected image will always be in PNG format** and thus, this parameter has no effect on iOS 
 
 `NativeGallery.GetVideoFromGallery( MediaPickCallback callback, string title = "", string mime = "video/*" )`: prompts the user to select a video from Gallery/Photos. This function works similar to its *GetImageFromGallery* equivalent.
 
