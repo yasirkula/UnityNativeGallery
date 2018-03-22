@@ -14,7 +14,7 @@ namespace NativeGalleryNamespace
 		public static bool IsBusy { get; private set; }
 		
 		[System.Runtime.InteropServices.DllImport( "__Internal" )]
-		private static extern int _IsMediaPickerBusy();
+		private static extern int _NativeGallery_IsMediaPickerBusy();
 
 		public static void Initialize( NativeGallery.MediaPickCallback callback )
 		{
@@ -41,7 +41,7 @@ namespace NativeGalleryNamespace
 				{
 					nextBusyCheckTime = Time.realtimeSinceStartup + 1f;
 
-					if( _IsMediaPickerBusy() == 0 )
+					if( _NativeGallery_IsMediaPickerBusy() == 0 )
 					{
 						if( callback != null )
 						{

@@ -10,6 +10,8 @@ public static class NativeGallery
 	public delegate void MediaPickCallback( string path );
 	public delegate void MediaPickMultipleCallback( string[] paths );
 
+	static GameObject callbackGameObject;
+
 #if !UNITY_EDITOR && UNITY_ANDROID
 	private static AndroidJavaClass m_ajc = null;
 	private static AndroidJavaClass AJC
@@ -41,28 +43,31 @@ public static class NativeGallery
 	}
 #elif !UNITY_EDITOR && UNITY_IOS
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern int _CheckPermission();
+	private static extern int _NativeGallery_CheckPermission();
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern int _RequestPermission();
+	private static extern int _NativeGallery_RequestPermission();
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern int _CanOpenSettings();
+	private static extern int _NativeGallery_CanOpenSettings();
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern void _OpenSettings();
+	private static extern void _NativeGallery_OpenSettings();
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern void _ImageWriteToAlbum( string path, string album );
+	private static extern void _NativeGallery_ImageWriteToAlbum( string path, string album );
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern void _VideoWriteToAlbum( string path, string album );
+	private static extern void _NativeGallery_VideoWriteToAlbum( string path, string album );
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern void _PickImage( string imageSavePath );
+	private static extern void _NativeGallery_PickImage( string imageSavePath );
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern void _PickVideo();
+	private static extern void _NativeGallery_PickVideo();
+
+	[System.Runtime.InteropServices.DllImport( "__Internal" )]
+	private static extern void _NativeGallery_SetGameObjectName( string gameObjectName );
 #endif
 
 	public static Permission CheckPermission()
@@ -74,7 +79,7 @@ public static class NativeGallery
 
 		return result;
 #elif !UNITY_EDITOR && UNITY_IOS
-		return (Permission) _CheckPermission();
+		return (Permission) _NativeGallery_CheckPermission();
 #else
 		return Permission.Granted;
 #endif
@@ -102,7 +107,7 @@ public static class NativeGallery
 			return (Permission) nativeCallback.Result;
 		}
 #elif !UNITY_EDITOR && UNITY_IOS
-		return (Permission) _RequestPermission();
+		return (Permission) _NativeGallery_RequestPermission();
 #else
 		return Permission.Granted;
 #endif
@@ -111,7 +116,7 @@ public static class NativeGallery
 	public static bool CanOpenSettings()
 	{
 #if !UNITY_EDITOR && UNITY_IOS
-		return _CanOpenSettings() == 1;
+		return _NativeGallery_CanOpenSettings() == 1;
 #else
 		return true;
 #endif
@@ -122,7 +127,7 @@ public static class NativeGallery
 #if !UNITY_EDITOR && UNITY_ANDROID
 		AJC.CallStatic( "OpenSettings", Context );
 #elif !UNITY_EDITOR && UNITY_IOS
-		_OpenSettings();
+		_NativeGallery_OpenSettings();
 #endif
 	}
 
@@ -216,6 +221,10 @@ public static class NativeGallery
 			File.WriteAllBytes( path, mediaBytes );
 
 			SaveToGalleryInternal( path, album, isImage );
+#if UNITY_EDITOR || UNITY_ANDROID
+			if( callbackGameObject != null )
+				callbackGameObject.SendMessage("OnSaveMediaComplete", "", SendMessageOptions.DontRequireReceiver);
+#endif
 		}
 
 		return result;
@@ -253,9 +262,9 @@ public static class NativeGallery
 		Debug.Log( "Saving to gallery: " + path );
 #elif !UNITY_EDITOR && UNITY_IOS
 		if( isImage )
-			_ImageWriteToAlbum( path, album );
+			_NativeGallery_ImageWriteToAlbum( path, album );
 		else
-			_VideoWriteToAlbum( path, album );
+			_NativeGallery_VideoWriteToAlbum( path, album );
 
 		Debug.Log( "Saving to Pictures: " + Path.GetFileName( path ) );
 #endif
@@ -325,9 +334,9 @@ public static class NativeGallery
 #elif !UNITY_EDITOR && UNITY_IOS
 			NGMediaReceiveCallbackiOS.Initialize( callback );
 			if( imageMode )
-				_PickImage( Path.Combine( Application.temporaryCachePath, "tmp.png" ) );
+				_NativeGallery_PickImage( Path.Combine( Application.temporaryCachePath, "tmp.png" ) );
 			else
-				_PickVideo();
+				_NativeGallery_PickVideo();
 #else
 			if( callback != null )
 				callback( null );
@@ -372,5 +381,13 @@ public static class NativeGallery
 		}
 
 		return result;
+	}
+
+	public static void SetGameObject( GameObject _callbackGameObject )
+	{
+		callbackGameObject = _callbackGameObject;
+#if !UNITY_EDITOR && UNITY_IOS
+		_NativeGallery_SetGameObjectName(callbackGameObject.name);
+#endif
 	}
 }

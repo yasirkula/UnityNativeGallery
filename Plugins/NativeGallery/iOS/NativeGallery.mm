@@ -27,6 +27,7 @@ static NSString *pickedMediaSavePath;
 static UIPopoverController *popup;
 static UIImagePickerController *imagePicker;
 static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this state on iPad), 2 -> finished
+static NSString *gameObjectName;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -183,6 +184,8 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 	if (!isImage && ![library videoAtPathIsCompatibleWithSavedPhotosAlbum:[NSURL fileURLWithPath:path]])
 	{
 		[[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+		if (gameObjectName != nil)
+			UnitySendMessage([gameObjectName UTF8String], "OnSaveMediaError", "videoAtPathIsNotCompatibleWithSavedPhotosAlbum");
 		return;
 	}
 	
@@ -193,12 +196,18 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 			if (error.code == 0) {
 				[library assetForURL:assetURL resultBlock:^(ALAsset *asset) { 
 					[assetCollection addAsset:asset];
+					if (gameObjectName != nil)
+						UnitySendMessage([gameObjectName UTF8String], "OnSaveMediaComplete", "");
 				} failureBlock:^(NSError* error) {
 					NSLog(@"Error moving asset to album: %@", error);
+					if (gameObjectName != nil)
+						UnitySendMessage([gameObjectName UTF8String], "OnSaveMediaError", [[error localizedDescription] UTF8String]);
 				}];
 			}
 			else {
 				NSLog(@"Error creating asset: %@", error);
+				if (gameObjectName != nil)
+					UnitySendMessage([gameObjectName UTF8String], "OnSaveMediaError", [[error localizedDescription] UTF8String]);
 			}
 		};
 		
@@ -222,11 +231,15 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 			failureBlock:^(NSError *error) {
 				NSLog(@"Error creating album: %@", error);
 				[[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+				if (gameObjectName != nil)
+					UnitySendMessage([gameObjectName UTF8String], "OnSaveMediaError", [[error localizedDescription] UTF8String]);
 			}];
 		}
 	} failureBlock:^(NSError* error) {
 		NSLog(@"Error listing albums: %@", error);
 		[[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+		if (gameObjectName != nil)
+			UnitySendMessage([gameObjectName UTF8String], "OnSaveMediaError", [[error localizedDescription] UTF8String]);
 	}];
 #endif
 }
@@ -251,6 +264,14 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 			}
 			
 			[[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+			if (success) {
+				if (gameObjectName != nil)
+					UnitySendMessage([gameObjectName UTF8String], "OnSaveMediaComplete", "");
+			} 
+			else {
+				if (gameObjectName != nil)
+					UnitySendMessage([gameObjectName UTF8String], "OnSaveMediaError", [[error localizedDescription] UTF8String]);
+			}
 		}];
 	};
 
@@ -271,12 +292,17 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 				PHFetchResult *fetchResult = [PHAssetCollection fetchAssetCollectionsWithLocalIdentifiers:@[albumPlaceholder.localIdentifier] options:nil];
 				if (fetchResult.count > 0)
 					saveBlock(fetchResult.firstObject);
-				else
+				else {
 					[[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+					if (gameObjectName != nil)
+						UnitySendMessage([gameObjectName UTF8String], "OnSaveMediaError", "no album placeholder found");
+				}
 			} 
 			else {
 				NSLog(@"Error creating album: %@", error);
 				[[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+				if (gameObjectName != nil)
+					UnitySendMessage([gameObjectName UTF8String], "OnSaveMediaError", [[error localizedDescription] UTF8String]);
 			}
 		}];
 	}
@@ -374,40 +400,48 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
     UnitySendMessage("NGMediaReceiveCallbackiOS", "OnMediaReceived", "");
 }
 
++ (void) setGameObjectName:(NSString *) goName {
+	gameObjectName = goName;
+}
+
 @end
 
-extern "C" int _CheckPermission() {
+extern "C" int _NativeGallery_CheckPermission() {
 	return [UNativeGallery checkPermission];
 }
 
-extern "C" int _RequestPermission() {
+extern "C" int _NativeGallery_RequestPermission() {
 	return [UNativeGallery requestPermission];
 }
 
-extern "C" int _CanOpenSettings() {
+extern "C" int _NativeGallery_CanOpenSettings() {
 	return [UNativeGallery canOpenSettings];
 }
 
-extern "C" void _OpenSettings() {
+extern "C" void _NativeGallery_OpenSettings() {
 	[UNativeGallery openSettings];
 }
 
-extern "C" void _ImageWriteToAlbum(const char* path, const char* album) {
+extern "C" void _NativeGallery_ImageWriteToAlbum(const char* path, const char* album) {
 	[UNativeGallery saveMedia:[NSString stringWithUTF8String:path] albumName:[NSString stringWithUTF8String:album] isImg:YES];
 }
 
-extern "C" void _VideoWriteToAlbum(const char* path, const char* album) {
+extern "C" void _NativeGallery_VideoWriteToAlbum(const char* path, const char* album) {
 	[UNativeGallery saveMedia:[NSString stringWithUTF8String:path] albumName:[NSString stringWithUTF8String:album] isImg:NO];
 }
 
-extern "C" void _PickImage(const char* imageSavePath) {
+extern "C" void _NativeGallery_PickImage(const char* imageSavePath) {
 	[UNativeGallery pickMedia:YES savePath:[NSString stringWithUTF8String:imageSavePath]];
 }
 
-extern "C" void _PickVideo() {
+extern "C" void _NativeGallery_PickVideo() {
 	[UNativeGallery pickMedia:NO savePath:nil];
 }
 
-extern "C" int _IsMediaPickerBusy() {
+extern "C" int _NativeGallery_IsMediaPickerBusy() {
 	return [UNativeGallery isMediaPickerBusy];
+}
+
+extern "C" void _NativeGallery_SetGameObjectName(const char* gameObjectName) {
+	[UNativeGallery setGameObjectName:[NSString stringWithUTF8String:gameObjectName]];
 }
