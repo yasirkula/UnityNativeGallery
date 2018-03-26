@@ -81,7 +81,7 @@ Beginning with *6.0 Marshmallow*, Android apps must request runtime permissions 
 `bool NativeGallery.CanOpenSettings()`: on iOS versions prior to 8.0, opening settings from within app is not possible and in this case, this function returns *false*. Otherwise, it returns *true*.
 
 ### D. Utility Functions
-`NativeGallery.ImageProperties NativeGallery.GetImageProperties( string imagePath )`: returns an *ImageProperties* instance that holds the width, height and mime type information of an image file without creating a *Texture2D* object. If mime type can't be determined, it will be *null*
+`NativeGallery.ImageProperties NativeGallery.GetImageProperties( string imagePath )`: returns an *ImageProperties* instance that holds the width, height and mime type information of an image file without creating a *Texture2D* object. Mime type will be *null*, if it can't be determined
 
 ## Example Code
 The following code has three functions:
