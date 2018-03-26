@@ -33,23 +33,24 @@ Delete *Plugins/NativeGallery.cs*, *Plugins/Android/NativeGallery.jar* and *Plug
 
 ## How To
 ### A. Saving Media To Gallery/Photos
-`NativeGallery.SaveImageToGallery( byte[] mediaBytes, string album, string filenameFormatted )`: use this function if you have the raw bytes of the image. 
+`NativeGallery.SaveImageToGallery( byte[] mediaBytes, string album, string filenameFormatted, MediaSaveCallback callback = null )`: use this function if you have the raw bytes of the image. 
 - On Android, your images are saved at **DCIM/album/filenameFormatted**. On iOS, the image will be saved in the corresponding album
 - **filenameFormatted** is string.Format'ed to avoid overwriting the same file on Android, if desired. If, for example, you want your images to be saved in a format like "*My img 1.png*", "*My img 2.png*" and etc., you can set the filenameFormatted as "**My img {0}.png**". *{0}* here is replaced with a unique number to avoid overwriting an existing file. If you don't use a {0} in your filenameFormatted parameter and a file with the same name does exist at that path, the file will be overwritten. On the other hand, a saved image is **never overwritten on iOS**
+- **MediaSaveCallback** takes a string parameter which stores an error string if something goes wrong while saving the image/video, or *null* if it is saved successfully. This parameter is optional
 
-`NativeGallery.SaveImageToGallery( string existingMediaPath, string album, string filenameFormatted )`: use this function if the image is already saved on disk. Enter the file's path to **existingMediaPath**. The file will be **copied** to **DCIM/album/filenameFormatted** on Android and *temporarily* copied to **Application.persistentDataPath/filenameFormatted** on iOS (copied file will automatically be deleted after saving the image as iOS keeps a separate copy of its media files in its internal directory).
+`NativeGallery.SaveImageToGallery( string existingMediaPath, string album, string filenameFormatted, MediaSaveCallback callback = null )`: use this function if the image is already saved on disk. Enter the file's path to **existingMediaPath**. The file will be **copied** to **DCIM/album/filenameFormatted** on Android and *temporarily* copied to **Application.persistentDataPath/filenameFormatted** on iOS (copied file will automatically be deleted after saving the image as iOS keeps a separate copy of its media files in its internal directory).
 
-`NativeGallery.SaveImageToGallery( Texture2D image, string album, string filenameFormatted )`: use this function to easily save a **Texture2D** to Gallery/Photos. If filenameFormatted ends with "*.jpeg*" or "*.jpg*", texture will be saved as JPEG; otherwise, it will be saved as PNG.
+`NativeGallery.SaveImageToGallery( Texture2D image, string album, string filenameFormatted, MediaSaveCallback callback = null )`: use this function to easily save a **Texture2D** to Gallery/Photos. If filenameFormatted ends with "*.jpeg*" or "*.jpg*", texture will be saved as JPEG; otherwise, it will be saved as PNG.
 
-`NativeGallery.SaveVideoToGallery( byte[] mediaBytes, string album, string filenameFormatted )`: use this function if you have the raw bytes of the video. This function works similar to its *SaveImageToGallery* equivalent.
+`NativeGallery.SaveVideoToGallery( byte[] mediaBytes, string album, string filenameFormatted, MediaSaveCallback callback = null )`: use this function if you have the raw bytes of the video. This function works similar to its *SaveImageToGallery* equivalent.
 
-`NativeGallery.SaveVideoToGallery( string existingMediaPath, string album, string filenameFormatted )`: use this function if the video is already saved on disk. This function works similar to its *SaveImageToGallery* equivalent.
+`NativeGallery.SaveVideoToGallery( string existingMediaPath, string album, string filenameFormatted, MediaSaveCallback callback = null )`: use this function if the video is already saved on disk. This function works similar to its *SaveImageToGallery* equivalent.
 
 ### B. Retrieving Media From Gallery/Photos
 `NativeGallery.GetImageFromGallery( MediaPickCallback callback, string title = "", string mime = "image/*" )`: prompts the user to select an image from Gallery/Photos.
 - This operation is **asynchronous**! After user selects an image or cancels the operation, the **callback** is called (on main thread). **MediaPickCallback** takes a *string* parameter which stores the path of the selected image, or *null* if nothing is selected
 - **title** determines the title of the image picker dialog on Android. Has no effect on iOS
-- **mime** filters the available images on Android. For example, to request a *JPEG* image from the user, mime can be set as "image/jpeg". Setting multiple mime types is not possible (in that case, you should leave mime as "image/*"). **On iOS, the selected image will always be in PNG format** and thus, this parameter has no effect on iOS 
+- **mime** filters the available images on Android. For example, to request a *JPEG* image from the user, mime can be set as "image/jpeg". Setting multiple mime types is not possible (in that case, you should leave mime as "image/\*"). **On iOS, the selected image will always be in PNG format** and thus, this parameter has no effect on iOS 
 
 `NativeGallery.GetVideoFromGallery( MediaPickCallback callback, string title = "", string mime = "video/*" )`: prompts the user to select a video from Gallery/Photos. This function works similar to its *GetImageFromGallery* equivalent.
 
@@ -63,7 +64,7 @@ Delete *Plugins/NativeGallery.cs*, *Plugins/Android/NativeGallery.jar* and *Plug
 
 Note that all these functions (except IsMediaPickerBusy) return a *NativeGallery.Permission* value. More details available below.
 
-## About Runtime Permissions
+### C. Runtime Permissions
 Beginning with *6.0 Marshmallow*, Android apps must request runtime permissions before accessing certain services, similar to iOS. There are two functions to handle permissions with this plugin:
 
 `NativeGallery.Permission NativeGallery.CheckPermission()`: checks whether the app has access to Gallery/Photos or not.
@@ -78,6 +79,9 @@ Beginning with *6.0 Marshmallow*, Android apps must request runtime permissions 
 `NativeGallery.OpenSettings()`: opens the settings for this app, from where the user can manually grant permission in case current permission state is *Permission.Denied* (on Android, the necessary permission is named *Storage* and on iOS, the necessary permission is named *Photos*).
 
 `bool NativeGallery.CanOpenSettings()`: on iOS versions prior to 8.0, opening settings from within app is not possible and in this case, this function returns *false*. Otherwise, it returns *true*.
+
+### D. Utility Functions
+`NativeGallery.ImageProperties NativeGallery.GetImageProperties( string imagePath )`: returns an *ImageProperties* instance that holds the width, height and mime type information of an image file without creating a *Texture2D* object. If mime type can't be determined, it will be *null*
 
 ## Example Code
 The following code has three functions:
@@ -143,7 +147,13 @@ private void PickImage()
 			GameObject cube = GameObject.CreatePrimitive( PrimitiveType.Cube );
 			cube.transform.position = Camera.main.transform.position + Camera.main.transform.forward * 10f;
 			cube.transform.forward = -Camera.main.transform.forward;
-			cube.GetComponent<Renderer>().material.mainTexture = texture;
+			
+			Material material = cube.GetComponent<Renderer>().material;
+			if( !material.shader.isSupported ) // happens when Standard shader is not included in the build
+				material.shader = Shader.Find( "Legacy Shaders/Diffuse" );
+
+			material.mainTexture = texture;
+				
 			Destroy( cube, 5f );
 
 			// If a procedural texture is not destroyed manually, 

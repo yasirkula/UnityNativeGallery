@@ -1,15 +1,25 @@
 ﻿using System;
 using System.IO;
 using UnityEngine;
+#if !UNITY_EDITOR && ( UNITY_ANDROID || UNITY_IOS )
 using NativeGalleryNamespace;
+#endif
 
 public static class NativeGallery
 {
+	public struct ImageProperties
+	{
+		public int width;
+		public int height;
+		public string mimeType;
+	}
+
 	public enum Permission { Denied = 0, Granted = 1, ShouldAsk = 2 };
 
+	public delegate void MediaSaveCallback( string error );
 	public delegate void MediaPickCallback( string path );
 	public delegate void MediaPickMultipleCallback( string[] paths );
-
+	
 #if !UNITY_EDITOR && UNITY_ANDROID
 	private static AndroidJavaClass m_ajc = null;
 	private static AndroidJavaClass AJC
@@ -41,28 +51,31 @@ public static class NativeGallery
 	}
 #elif !UNITY_EDITOR && UNITY_IOS
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern int _CheckPermission();
+	private static extern int _NativeGallery_CheckPermission();
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern int _RequestPermission();
+	private static extern int _NativeGallery_RequestPermission();
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern int _CanOpenSettings();
+	private static extern int _NativeGallery_CanOpenSettings();
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern void _OpenSettings();
+	private static extern void _NativeGallery_OpenSettings();
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern void _ImageWriteToAlbum( string path, string album );
+	private static extern void _NativeGallery_ImageWriteToAlbum( string path, string album );
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern void _VideoWriteToAlbum( string path, string album );
+	private static extern void _NativeGallery_VideoWriteToAlbum( string path, string album );
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern void _PickImage( string imageSavePath );
+	private static extern void _NativeGallery_PickImage( string imageSavePath );
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern void _PickVideo();
+	private static extern void _NativeGallery_PickVideo();
+
+	[System.Runtime.InteropServices.DllImport( "__Internal" )]
+	private static extern string _NativeGallery_GetImageProperties( string path );
 #endif
 
 	public static Permission CheckPermission()
@@ -74,7 +87,7 @@ public static class NativeGallery
 
 		return result;
 #elif !UNITY_EDITOR && UNITY_IOS
-		return (Permission) _CheckPermission();
+		return (Permission) _NativeGallery_CheckPermission();
 #else
 		return Permission.Granted;
 #endif
@@ -102,7 +115,7 @@ public static class NativeGallery
 			return (Permission) nativeCallback.Result;
 		}
 #elif !UNITY_EDITOR && UNITY_IOS
-		return (Permission) _RequestPermission();
+		return (Permission) _NativeGallery_RequestPermission();
 #else
 		return Permission.Granted;
 #endif
@@ -111,7 +124,7 @@ public static class NativeGallery
 	public static bool CanOpenSettings()
 	{
 #if !UNITY_EDITOR && UNITY_IOS
-		return _CanOpenSettings() == 1;
+		return _NativeGallery_CanOpenSettings() == 1;
 #else
 		return true;
 #endif
@@ -122,41 +135,41 @@ public static class NativeGallery
 #if !UNITY_EDITOR && UNITY_ANDROID
 		AJC.CallStatic( "OpenSettings", Context );
 #elif !UNITY_EDITOR && UNITY_IOS
-		_OpenSettings();
+		_NativeGallery_OpenSettings();
 #endif
 	}
 
-	public static Permission SaveImageToGallery( byte[] mediaBytes, string album, string filenameFormatted )
+	public static Permission SaveImageToGallery( byte[] mediaBytes, string album, string filenameFormatted, MediaSaveCallback callback = null )
 	{
-		return SaveToGallery( mediaBytes, album, filenameFormatted, true );
+		return SaveToGallery( mediaBytes, album, filenameFormatted, true, callback );
 	}
 
-	public static Permission SaveImageToGallery( string existingMediaPath, string album, string filenameFormatted )
+	public static Permission SaveImageToGallery( string existingMediaPath, string album, string filenameFormatted, MediaSaveCallback callback = null )
 	{
-		return SaveToGallery( existingMediaPath, album, filenameFormatted, true );
+		return SaveToGallery( existingMediaPath, album, filenameFormatted, true, callback );
 	}
 
-	public static Permission SaveImageToGallery( Texture2D image, string album, string filenameFormatted )
+	public static Permission SaveImageToGallery( Texture2D image, string album, string filenameFormatted, MediaSaveCallback callback = null )
 	{
 		if( image == null )
 			throw new ArgumentException( "Parameter 'image' is null!" );
 
 		if( filenameFormatted.EndsWith( ".jpeg" ) || filenameFormatted.EndsWith( ".jpg" ) )
-			return SaveToGallery( image.EncodeToJPG( 100 ), album, filenameFormatted, true );
+			return SaveToGallery( image.EncodeToJPG( 100 ), album, filenameFormatted, true, callback );
 		else if( filenameFormatted.EndsWith( ".png" ) )
-			return SaveToGallery( image.EncodeToPNG(), album, filenameFormatted, true );
+			return SaveToGallery( image.EncodeToPNG(), album, filenameFormatted, true, callback );
 		else
-			return SaveToGallery( image.EncodeToPNG(), album, filenameFormatted + ".png", true );
+			return SaveToGallery( image.EncodeToPNG(), album, filenameFormatted + ".png", true, callback );
 	}
 
-	public static Permission SaveVideoToGallery( byte[] mediaBytes, string album, string filenameFormatted )
+	public static Permission SaveVideoToGallery( byte[] mediaBytes, string album, string filenameFormatted, MediaSaveCallback callback = null )
 	{
-		return SaveToGallery( mediaBytes, album, filenameFormatted, false );
+		return SaveToGallery( mediaBytes, album, filenameFormatted, false, callback );
 	}
 
-	public static Permission SaveVideoToGallery( string existingMediaPath, string album, string filenameFormatted )
+	public static Permission SaveVideoToGallery( string existingMediaPath, string album, string filenameFormatted, MediaSaveCallback callback = null )
 	{
-		return SaveToGallery( existingMediaPath, album, filenameFormatted, false );
+		return SaveToGallery( existingMediaPath, album, filenameFormatted, false, callback );
 	}
 
 	public static bool CanSelectMultipleFilesFromGallery()
@@ -197,7 +210,7 @@ public static class NativeGallery
 #endif
 	}
 
-	private static Permission SaveToGallery( byte[] mediaBytes, string album, string filenameFormatted, bool isImage )
+	private static Permission SaveToGallery( byte[] mediaBytes, string album, string filenameFormatted, bool isImage, MediaSaveCallback callback )
 	{
 		Permission result = RequestPermission();
 		if( result == Permission.Granted )
@@ -215,13 +228,13 @@ public static class NativeGallery
 
 			File.WriteAllBytes( path, mediaBytes );
 
-			SaveToGalleryInternal( path, album, isImage );
+			SaveToGalleryInternal( path, album, isImage, callback );
 		}
 
 		return result;
 	}
 
-	private static Permission SaveToGallery( string existingMediaPath, string album, string filenameFormatted, bool isImage )
+	private static Permission SaveToGallery( string existingMediaPath, string album, string filenameFormatted, bool isImage, MediaSaveCallback callback )
 	{
 		Permission result = RequestPermission();
 		if( result == Permission.Granted )
@@ -239,23 +252,27 @@ public static class NativeGallery
 
 			File.Copy( existingMediaPath, path, true );
 
-			SaveToGalleryInternal( path, album, isImage );
+			SaveToGalleryInternal( path, album, isImage, callback );
 		}
 
 		return result;
 	}
 
-	private static void SaveToGalleryInternal( string path, string album, bool isImage )
+	private static void SaveToGalleryInternal( string path, string album, bool isImage, MediaSaveCallback callback )
 	{
 #if !UNITY_EDITOR && UNITY_ANDROID
 		AJC.CallStatic( "MediaScanFile", Context, path );
 
+		if( callback != null )
+			callback( null );
+
 		Debug.Log( "Saving to gallery: " + path );
 #elif !UNITY_EDITOR && UNITY_IOS
+		NGMediaSaveCallbackiOS.Initialize( callback );
 		if( isImage )
-			_ImageWriteToAlbum( path, album );
+			_NativeGallery_ImageWriteToAlbum( path, album );
 		else
-			_VideoWriteToAlbum( path, album );
+			_NativeGallery_VideoWriteToAlbum( path, album );
 
 		Debug.Log( "Saving to Pictures: " + Path.GetFileName( path ) );
 #endif
@@ -325,9 +342,9 @@ public static class NativeGallery
 #elif !UNITY_EDITOR && UNITY_IOS
 			NGMediaReceiveCallbackiOS.Initialize( callback );
 			if( imageMode )
-				_PickImage( Path.Combine( Application.temporaryCachePath, "tmp.png" ) );
+				_NativeGallery_PickImage( Path.Combine( Application.temporaryCachePath, "tmp.png" ) );
 			else
-				_PickVideo();
+				_NativeGallery_PickVideo();
 #else
 			if( callback != null )
 				callback( null );
@@ -369,6 +386,50 @@ public static class NativeGallery
 			}
 			else if( callback != null )
 				callback( null );
+		}
+
+		return result;
+	}
+
+	public static ImageProperties GetImageProperties( string imagePath )
+	{
+		if( !File.Exists( imagePath ) )
+			throw new FileNotFoundException( "File not found at " + imagePath );
+
+		string value = null;
+#if !UNITY_EDITOR && UNITY_ANDROID
+		value = AJC.CallStatic<string>( "GetImageProperties", imagePath );
+#elif !UNITY_EDITOR && UNITY_IOS
+		value = _NativeGallery_GetImageProperties( imagePath );
+#endif
+
+		ImageProperties result = new ImageProperties();
+		if( !string.IsNullOrEmpty( value ) )
+		{
+			string[] properties = value.Split( '>' );
+			if( properties != null && properties.Length >= 3 )
+			{
+				int width, height;
+				if( int.TryParse( properties[0], out width ) )
+					result.width = width;
+				if( int.TryParse( properties[1], out height ) )
+					result.height = height;
+
+				if( !string.IsNullOrEmpty( properties[2] ) )
+					result.mimeType = properties[2];
+				else
+				{
+					String extension = Path.GetExtension( imagePath );
+					if( extension == ".png" )
+						result.mimeType = "image/png";
+					else if( extension == ".jpg" || extension == ".jpeg" )
+						result.mimeType = "image/jpeg";
+					else if( extension == ".gif" )
+						result.mimeType = "image/gif";
+					else if( extension == ".bmp" )
+						result.mimeType = "image/bmp";
+				}
+			}
 		}
 
 		return result;

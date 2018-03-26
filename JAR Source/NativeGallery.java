@@ -7,12 +7,14 @@ import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.BitmapFactory;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.Settings;
+import android.util.Log;
 
 import java.io.File;
 
@@ -117,5 +119,27 @@ public class NativeGallery
 	public static boolean CanSelectMultipleMedia()
 	{
 		return Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2;
+	}
+
+	// Credit: https://stackoverflow.com/a/16440953/2373034
+	public static String GetImageProperties( String path )
+	{
+		try
+		{
+			BitmapFactory.Options options = new BitmapFactory.Options();
+			options.inJustDecodeBounds = true;
+			BitmapFactory.decodeFile( path, options );
+
+			String mimeType = options.outMimeType;
+			if( mimeType == null )
+				mimeType = "";
+
+			return options.outWidth + ">" + options.outHeight + ">" + mimeType;
+		}
+		catch( Exception e )
+		{
+			Log.e( "Unity", "Exception:", e );
+			return "";
+		}
 	}
 }
