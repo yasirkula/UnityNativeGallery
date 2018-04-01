@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <Photos/Photos.h>
 #import <MobileCoreServices/UTCoreTypes.h>
+#import <ImageIO/ImageIO.h>
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < 80000
 #import <AssetsLibrary/AssetsLibrary.h>
 #endif
@@ -18,8 +19,10 @@ extern UIViewController* UnityGetGLViewController();
 + (void)openSettings;
 + (void)saveMedia:(NSString *)path albumName:(NSString *)album isImg:(BOOL)isImg;
 + (void)pickMedia:(BOOL)imageMode savePath:(NSString *)imageSavePath;
++ (void)pickMediaSetMaxSize:(int)maxSize;
 + (int)isMediaPickerBusy;
 + (char *)getImageProperties:(NSString *)path;
++ (char *)loadImageAtPath:(NSString *)path tempFilePath:(NSString *)tempFilePath maximumSize:(int)maximumSize;
 @end
 
 @implementation UNativeGallery
@@ -27,6 +30,7 @@ extern UIViewController* UnityGetGLViewController();
 static NSString *pickedMediaSavePath;
 static UIPopoverController *popup;
 static UIImagePickerController *imagePicker;
+static int pickMediaMaxSize = -1;
 static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this state on iPad), 2 -> finished
 
 #pragma clang diagnostic push
@@ -319,6 +323,10 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 	}
 }
 
++ (void)pickMediaSetMaxSize:(int)maxSize {
+	pickMediaMaxSize = maxSize;
+}
+
 + (int)isMediaPickerBusy {
 	if (imagePickerState == 2)
 		return 1;
@@ -335,10 +343,125 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 		return 0;
 }
 
+// Credit: https://stackoverflow.com/a/4170099/2373034
++ (NSArray *)getImageMetadata:(NSString *)path {
+	int width = 0;
+	int height = 0;
+	int orientation = -1;
+
+	CGImageSourceRef imageSource = CGImageSourceCreateWithURL((CFURLRef)[NSURL fileURLWithPath:path], nil);
+	if (imageSource != nil) {
+		NSDictionary *options = [NSDictionary dictionaryWithObject:[NSNumber numberWithBool:NO] forKey:(NSString *)kCGImageSourceShouldCache];
+		CFDictionaryRef imageProperties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, (CFDictionaryRef)options);
+		CFRelease(imageSource);
+
+		CGFloat widthF = 0.0f, heightF = 0.0f;
+		if (imageProperties != nil) {
+			if (CFDictionaryContainsKey(imageProperties, kCGImagePropertyPixelWidth))
+				CFNumberGetValue((CFNumberRef)CFDictionaryGetValue(imageProperties, kCGImagePropertyPixelWidth), kCFNumberCGFloatType, &widthF);
+			
+			if (CFDictionaryContainsKey(imageProperties, kCGImagePropertyPixelHeight))
+				CFNumberGetValue((CFNumberRef)CFDictionaryGetValue(imageProperties, kCGImagePropertyPixelHeight), kCFNumberCGFloatType, &heightF);
+
+			if (CFDictionaryContainsKey(imageProperties, kCGImagePropertyOrientation)) {
+				CFNumberGetValue((CFNumberRef)CFDictionaryGetValue(imageProperties, kCGImagePropertyOrientation), kCFNumberIntType, &orientation);
+				
+				if (orientation > 4) { // landscape image
+					CGFloat temp = widthF;
+					widthF = heightF;
+					heightF = temp;
+				}
+			}
+
+			CFRelease(imageProperties);
+		}
+
+		width = (int)roundf(widthF);
+		height = (int)roundf(heightF);
+	}
+
+	return [[NSArray alloc] initWithObjects:[NSNumber numberWithInt:width], [NSNumber numberWithInt:height], [NSNumber numberWithInt:orientation], nil];
+}
+
 + (char *)getImageProperties:(NSString *)path {
-	NSData *imageData = [NSData dataWithContentsOfURL:[NSURL fileURLWithPath:path]];
-	UIImage *image = [UIImage imageWithData:imageData];
-	return [self getCString:[NSString stringWithFormat:@"%d>%d>", (int)roundf(image.size.width), (int)roundf(image.size.height)]];
+	NSArray *metadata = [self getImageMetadata:path];
+	
+	int orientationUnity;
+	int orientation = [metadata[2] intValue];
+	
+	// To understand the magic numbers, see ImageOrientation enum in NativeGallery.cs
+	// and http://sylvana.net/jpegcrop/exif_orientation.html
+	if (orientation == 1)
+		orientationUnity = 0;
+	else if (orientation == 2)
+		orientationUnity = 4;
+	else if (orientation == 3)
+		orientationUnity = 2;
+	else if (orientation == 4)
+		orientationUnity = 6;
+	else if (orientation == 5)
+		orientationUnity = 5;
+	else if (orientation == 6)
+		orientationUnity = 1;
+	else if (orientation == 7)
+		orientationUnity = 7;
+	else if (orientation == 8)
+		orientationUnity = 3;
+	else
+		orientationUnity = -1;
+	
+	return [self getCString:[NSString stringWithFormat:@"%d>%d> >%d", [metadata[0] intValue], [metadata[1] intValue], orientationUnity]];
+}
+
++ (UIImage *)scaleImage:(UIImage *)image maxSize:(int)maxSize {
+	CGFloat width = image.size.width;
+	CGFloat height = image.size.height;
+	
+	UIImageOrientation orientation = image.imageOrientation;
+	if (width <= maxSize && height <= maxSize && orientation != UIImageOrientationDown &&
+		orientation != UIImageOrientationLeft && orientation != UIImageOrientationRight &&
+		orientation != UIImageOrientationLeftMirrored && orientation != UIImageOrientationRightMirrored &&
+		orientation != UIImageOrientationUpMirrored && orientation != UIImageOrientationDownMirrored)
+		return image;
+	
+	CGFloat scaleX = 1.0f;
+	CGFloat scaleY = 1.0f;
+	if (width > maxSize)
+		scaleX = maxSize / width;
+	if (height > maxSize)
+		scaleY = maxSize / height;
+	
+	// Credit: https://github.com/mbcharbonneau/UIImage-Categories/blob/master/UIImage%2BAlpha.m
+	CGImageAlphaInfo alpha = CGImageGetAlphaInfo(image.CGImage);
+    BOOL hasAlpha = alpha == kCGImageAlphaFirst || alpha == kCGImageAlphaLast || alpha == kCGImageAlphaPremultipliedFirst || alpha == kCGImageAlphaPremultipliedLast;
+	
+	CGFloat scaleRatio = scaleX < scaleY ? scaleX : scaleY;
+	CGRect imageRect = CGRectMake(0, 0, width * scaleRatio, height * scaleRatio);
+	UIGraphicsBeginImageContextWithOptions(imageRect.size, !hasAlpha, image.scale);
+	[image drawInRect:imageRect];
+	image = UIGraphicsGetImageFromCurrentImageContext();
+	UIGraphicsEndImageContext();
+	
+	return image;
+}
+
++ (char *)loadImageAtPath:(NSString *)path tempFilePath:(NSString *)tempFilePath maximumSize:(int)maximumSize {
+	NSArray *metadata = [self getImageMetadata:path];
+	int orientationInt = [metadata[2] intValue];  // 1: correct orientation, [1,8]: valid orientation range
+	if (( orientationInt <= 1 || orientationInt > 8 ) && [metadata[0] intValue] <= maximumSize && [metadata[1] intValue] <= maximumSize)
+		return [self getCString:path];
+	
+	UIImage *image = [UIImage imageWithContentsOfFile:path];
+	if (image == nil)
+		return [self getCString:path];
+	
+	UIImage *scaledImage = [self scaleImage:image maxSize:maximumSize];
+	if (scaledImage != image) {
+		[UIImagePNGRepresentation(scaledImage) writeToFile:tempFilePath atomically:YES];
+		return [self getCString:tempFilePath];
+	}
+	else
+		return [self getCString:path];
 }
 
 + (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary *)info {
@@ -349,7 +472,7 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 		if (image == nil)
 			path = nil;
 		else {
-			[UIImagePNGRepresentation(image) writeToFile:pickedMediaSavePath atomically:YES];
+			[UIImagePNGRepresentation([self scaleImage:image maxSize:pickMediaMaxSize]) writeToFile:pickedMediaSavePath atomically:YES];
 			path = pickedMediaSavePath;
 		}
 	}
@@ -422,7 +545,8 @@ extern "C" void _NativeGallery_VideoWriteToAlbum(const char* path, const char* a
 	[UNativeGallery saveMedia:[NSString stringWithUTF8String:path] albumName:[NSString stringWithUTF8String:album] isImg:NO];
 }
 
-extern "C" void _NativeGallery_PickImage(const char* imageSavePath) {
+extern "C" void _NativeGallery_PickImage(const char* imageSavePath, int maxSize) {
+	[UNativeGallery pickMediaSetMaxSize:maxSize];
 	[UNativeGallery pickMedia:YES savePath:[NSString stringWithUTF8String:imageSavePath]];
 }
 
@@ -436,4 +560,8 @@ extern "C" int _NativeGallery_IsMediaPickerBusy() {
 
 extern "C" char* _NativeGallery_GetImageProperties(const char* path) {
 	return [UNativeGallery getImageProperties:[NSString stringWithUTF8String:path]];
+}
+
+extern "C" char* _NativeGallery_LoadImageAtPath(const char* path, const char* temporaryFilePath, int maxSize) {
+	return [UNativeGallery loadImageAtPath:[NSString stringWithUTF8String:path] tempFilePath:[NSString stringWithUTF8String:temporaryFilePath] maximumSize:maxSize];
 }
