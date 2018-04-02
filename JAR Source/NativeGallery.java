@@ -22,7 +22,6 @@ import android.util.Log;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.InputStream;
 
 /**
  * Created by yasirkula on 22.06.2017.
@@ -175,6 +174,9 @@ public class NativeGallery
 				return ExifInterface.ORIENTATION_NORMAL;
 			}
 		}
+		catch( Exception e )
+		{
+		}
 		finally
 		{
 			if( cursor != null )
@@ -272,14 +274,10 @@ public class NativeGallery
 			{
 				// Credit: https://developer.android.com/topic/performance/graphics/load-bitmap.html
 				int sampleSize = 1;
-				if( metadata.outHeight > maxSize || metadata.outWidth > maxSize )
-				{
-					int halfHeight = metadata.outHeight / 2;
-					int halfWidth = metadata.outWidth / 2;
-
-					while( ( halfHeight / sampleSize ) >= maxSize && ( halfWidth / sampleSize ) >= maxSize )
-						sampleSize *= 2;
-				}
+				int halfHeight = metadata.outHeight / 2;
+				int halfWidth = metadata.outWidth / 2;
+				while( ( halfHeight / sampleSize ) >= maxSize || ( halfWidth / sampleSize ) >= maxSize )
+					sampleSize *= 2;
 
 				BitmapFactory.Options options = new BitmapFactory.Options();
 				options.inSampleSize = sampleSize;
