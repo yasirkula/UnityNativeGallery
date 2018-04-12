@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <Photos/Photos.h>
 #import <MobileCoreServices/UTCoreTypes.h>
+#import <ImageIO/ImageIO.h>
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < 80000
 #import <AssetsLibrary/AssetsLibrary.h>
 #endif
@@ -18,7 +19,10 @@ extern UIViewController* UnityGetGLViewController();
 + (void)openSettings;
 + (void)saveMedia:(NSString *)path albumName:(NSString *)album isImg:(BOOL)isImg;
 + (void)pickMedia:(BOOL)imageMode savePath:(NSString *)imageSavePath;
++ (void)pickMediaSetMaxSize:(int)maxSize;
 + (int)isMediaPickerBusy;
++ (char *)getImageProperties:(NSString *)path;
++ (char *)loadImageAtPath:(NSString *)path tempFilePath:(NSString *)tempFilePath maximumSize:(int)maximumSize;
 @end
 
 @implementation UNativeGallery
@@ -26,6 +30,7 @@ extern UIViewController* UnityGetGLViewController();
 static NSString *pickedMediaSavePath;
 static UIPopoverController *popup;
 static UIImagePickerController *imagePicker;
+static int pickMediaMaxSize = -1;
 static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this state on iPad), 2 -> finished
 
 #pragma clang diagnostic push
@@ -183,6 +188,7 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 	if (!isImage && ![library videoAtPathIsCompatibleWithSavedPhotosAlbum:[NSURL fileURLWithPath:path]])
 	{
 		[[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+		UnitySendMessage("NGMediaSaveCallbackiOS", "OnMediaSaveFailed", "Video format is not compatible with Photos");
 		return;
 	}
 	
@@ -193,12 +199,15 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 			if (error.code == 0) {
 				[library assetForURL:assetURL resultBlock:^(ALAsset *asset) { 
 					[assetCollection addAsset:asset];
+					UnitySendMessage("NGMediaSaveCallbackiOS", "OnMediaSaveCompleted", "");
 				} failureBlock:^(NSError* error) {
 					NSLog(@"Error moving asset to album: %@", error);
+					UnitySendMessage("NGMediaSaveCallbackiOS", "OnMediaSaveFailed", [self getCString:[error localizedDescription]]);
 				}];
 			}
 			else {
 				NSLog(@"Error creating asset: %@", error);
+				UnitySendMessage("NGMediaSaveCallbackiOS", "OnMediaSaveFailed", [self getCString:[error localizedDescription]]);
 			}
 		};
 		
@@ -222,11 +231,13 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 			failureBlock:^(NSError *error) {
 				NSLog(@"Error creating album: %@", error);
 				[[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+				UnitySendMessage("NGMediaSaveCallbackiOS", "OnMediaSaveFailed", [self getCString:[error localizedDescription]]);
 			}];
 		}
 	} failureBlock:^(NSError* error) {
 		NSLog(@"Error listing albums: %@", error);
 		[[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+		UnitySendMessage("NGMediaSaveCallbackiOS", "OnMediaSaveFailed", [self getCString:[error localizedDescription]]);
 	}];
 #endif
 }
@@ -246,11 +257,14 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 			[assetCollectionChangeRequest addAssets:@[[assetChangeRequest placeholderForCreatedAsset]]];
 
 		} completionHandler:^(BOOL success, NSError *error) {
-			if (!success) {
-				NSLog(@"Error creating asset: %@", error);
-			}
-			
 			[[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+			
+			if (success)
+				UnitySendMessage("NGMediaSaveCallbackiOS", "OnMediaSaveCompleted", "");
+			else {
+				NSLog(@"Error creating asset: %@", error);
+				UnitySendMessage("NGMediaSaveCallbackiOS", "OnMediaSaveFailed", [self getCString:[error localizedDescription]]);
+			}	
 		}];
 	};
 
@@ -265,18 +279,20 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 		[[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
 			PHAssetCollectionChangeRequest *changeRequest = [PHAssetCollectionChangeRequest creationRequestForAssetCollectionWithTitle:album];
 			albumPlaceholder = changeRequest.placeholderForCreatedAssetCollection;
-
 		} completionHandler:^(BOOL success, NSError *error) {
 			if (success) {
 				PHFetchResult *fetchResult = [PHAssetCollection fetchAssetCollectionsWithLocalIdentifiers:@[albumPlaceholder.localIdentifier] options:nil];
 				if (fetchResult.count > 0)
 					saveBlock(fetchResult.firstObject);
-				else
+				else {
 					[[NSFileManager defaultManager] removeItemAtPath:path error:nil];
-			} 
+					UnitySendMessage("NGMediaSaveCallbackiOS", "OnMediaSaveFailed", "Album placeholder not found" );
+				}
+			}
 			else {
 				NSLog(@"Error creating album: %@", error);
 				[[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+				UnitySendMessage("NGMediaSaveCallbackiOS", "OnMediaSaveFailed", [self getCString:[error localizedDescription]]);
 			}
 		}];
 	}
@@ -307,6 +323,10 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 	}
 }
 
++ (void)pickMediaSetMaxSize:(int)maxSize {
+	pickMediaMaxSize = maxSize;
+}
+
 + (int)isMediaPickerBusy {
 	if (imagePickerState == 2)
 		return 1;
@@ -323,6 +343,127 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 		return 0;
 }
 
+// Credit: https://stackoverflow.com/a/4170099/2373034
++ (NSArray *)getImageMetadata:(NSString *)path {
+	int width = 0;
+	int height = 0;
+	int orientation = -1;
+
+	CGImageSourceRef imageSource = CGImageSourceCreateWithURL((CFURLRef)[NSURL fileURLWithPath:path], nil);
+	if (imageSource != nil) {
+		NSDictionary *options = [NSDictionary dictionaryWithObject:[NSNumber numberWithBool:NO] forKey:(NSString *)kCGImageSourceShouldCache];
+		CFDictionaryRef imageProperties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, (CFDictionaryRef)options);
+		CFRelease(imageSource);
+
+		CGFloat widthF = 0.0f, heightF = 0.0f;
+		if (imageProperties != nil) {
+			if (CFDictionaryContainsKey(imageProperties, kCGImagePropertyPixelWidth))
+				CFNumberGetValue((CFNumberRef)CFDictionaryGetValue(imageProperties, kCGImagePropertyPixelWidth), kCFNumberCGFloatType, &widthF);
+			
+			if (CFDictionaryContainsKey(imageProperties, kCGImagePropertyPixelHeight))
+				CFNumberGetValue((CFNumberRef)CFDictionaryGetValue(imageProperties, kCGImagePropertyPixelHeight), kCFNumberCGFloatType, &heightF);
+
+			if (CFDictionaryContainsKey(imageProperties, kCGImagePropertyOrientation)) {
+				CFNumberGetValue((CFNumberRef)CFDictionaryGetValue(imageProperties, kCGImagePropertyOrientation), kCFNumberIntType, &orientation);
+				
+				if (orientation > 4) { // landscape image
+					CGFloat temp = widthF;
+					widthF = heightF;
+					heightF = temp;
+				}
+			}
+
+			CFRelease(imageProperties);
+		}
+
+		width = (int)roundf(widthF);
+		height = (int)roundf(heightF);
+	}
+
+	return [[NSArray alloc] initWithObjects:[NSNumber numberWithInt:width], [NSNumber numberWithInt:height], [NSNumber numberWithInt:orientation], nil];
+}
+
++ (char *)getImageProperties:(NSString *)path {
+	NSArray *metadata = [self getImageMetadata:path];
+	
+	int orientationUnity;
+	int orientation = [metadata[2] intValue];
+	
+	// To understand the magic numbers, see ImageOrientation enum in NativeGallery.cs
+	// and http://sylvana.net/jpegcrop/exif_orientation.html
+	if (orientation == 1)
+		orientationUnity = 0;
+	else if (orientation == 2)
+		orientationUnity = 4;
+	else if (orientation == 3)
+		orientationUnity = 2;
+	else if (orientation == 4)
+		orientationUnity = 6;
+	else if (orientation == 5)
+		orientationUnity = 5;
+	else if (orientation == 6)
+		orientationUnity = 1;
+	else if (orientation == 7)
+		orientationUnity = 7;
+	else if (orientation == 8)
+		orientationUnity = 3;
+	else
+		orientationUnity = -1;
+	
+	return [self getCString:[NSString stringWithFormat:@"%d>%d> >%d", [metadata[0] intValue], [metadata[1] intValue], orientationUnity]];
+}
+
++ (UIImage *)scaleImage:(UIImage *)image maxSize:(int)maxSize {
+	CGFloat width = image.size.width;
+	CGFloat height = image.size.height;
+	
+	UIImageOrientation orientation = image.imageOrientation;
+	if (width <= maxSize && height <= maxSize && orientation != UIImageOrientationDown &&
+		orientation != UIImageOrientationLeft && orientation != UIImageOrientationRight &&
+		orientation != UIImageOrientationLeftMirrored && orientation != UIImageOrientationRightMirrored &&
+		orientation != UIImageOrientationUpMirrored && orientation != UIImageOrientationDownMirrored)
+		return image;
+	
+	CGFloat scaleX = 1.0f;
+	CGFloat scaleY = 1.0f;
+	if (width > maxSize)
+		scaleX = maxSize / width;
+	if (height > maxSize)
+		scaleY = maxSize / height;
+	
+	// Credit: https://github.com/mbcharbonneau/UIImage-Categories/blob/master/UIImage%2BAlpha.m
+	CGImageAlphaInfo alpha = CGImageGetAlphaInfo(image.CGImage);
+    BOOL hasAlpha = alpha == kCGImageAlphaFirst || alpha == kCGImageAlphaLast || alpha == kCGImageAlphaPremultipliedFirst || alpha == kCGImageAlphaPremultipliedLast;
+	
+	CGFloat scaleRatio = scaleX < scaleY ? scaleX : scaleY;
+	CGRect imageRect = CGRectMake(0, 0, width * scaleRatio, height * scaleRatio);
+	UIGraphicsBeginImageContextWithOptions(imageRect.size, !hasAlpha, image.scale);
+	[image drawInRect:imageRect];
+	image = UIGraphicsGetImageFromCurrentImageContext();
+	UIGraphicsEndImageContext();
+	
+	return image;
+}
+
++ (char *)loadImageAtPath:(NSString *)path tempFilePath:(NSString *)tempFilePath maximumSize:(int)maximumSize {
+	NSArray *metadata = [self getImageMetadata:path];
+	int orientationInt = [metadata[2] intValue];  // 1: correct orientation, [1,8]: valid orientation range
+	if (( orientationInt <= 1 || orientationInt > 8 ) && [metadata[0] intValue] <= maximumSize && [metadata[1] intValue] <= maximumSize)
+		return [self getCString:path];
+	
+	UIImage *image = [UIImage imageWithContentsOfFile:path];
+	if (image == nil)
+		return [self getCString:path];
+	
+	UIImage *scaledImage = [self scaleImage:image maxSize:maximumSize];
+	if (scaledImage != image) {
+		[UIImagePNGRepresentation(scaledImage) writeToFile:tempFilePath atomically:YES];
+		return [self getCString:tempFilePath];
+	}
+	else
+		return [self getCString:path];
+}
+
 + (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary *)info {
 	NSString *path;
 	if ([info[UIImagePickerControllerMediaType] isEqualToString:(NSString *)kUTTypeImage]) { // image picked
@@ -331,7 +472,7 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 		if (image == nil)
 			path = nil;
 		else {
-			[UIImagePNGRepresentation(image) writeToFile:pickedMediaSavePath atomically:YES];
+			[UIImagePNGRepresentation([self scaleImage:image maxSize:pickMediaMaxSize]) writeToFile:pickedMediaSavePath atomically:YES];
 			path = pickedMediaSavePath;
 		}
 	}
@@ -343,18 +484,10 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 			path = [mediaUrl path];
 	}
 
-	if (path == nil)
-		path = @"";
-		
-	// Credit: https://stackoverflow.com/a/37052118/2373034
-	const char *pathUTF8 = [path UTF8String];
-	char *result = (char*) malloc(strlen(pathUTF8) + 1);
-	strcpy(result, pathUTF8);
-
 	popup = nil;
 	imagePicker = nil;
 	imagePickerState = 2;
-	UnitySendMessage("NGMediaReceiveCallbackiOS", "OnMediaReceived", result);
+	UnitySendMessage("NGMediaReceiveCallbackiOS", "OnMediaReceived", [self getCString:path]);
 
 	[picker dismissViewControllerAnimated:YES completion:nil];
 }
@@ -368,46 +501,67 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 	[picker dismissViewControllerAnimated:YES completion:nil];
 }
 
-+ (void) popoverControllerDidDismissPopover:(UIPopoverController *) popoverController {
++ (void)popoverControllerDidDismissPopover:(UIPopoverController *)popoverController {
 	popup = nil;
 	imagePicker = nil;
     UnitySendMessage("NGMediaReceiveCallbackiOS", "OnMediaReceived", "");
 }
 
+// Credit: https://stackoverflow.com/a/37052118/2373034
++ (char *)getCString:(NSString *)source {
+	if (source == nil)
+		source = @"";
+	
+	const char *sourceUTF8 = [source UTF8String];
+	char *result = (char*) malloc(strlen(sourceUTF8) + 1);
+	strcpy(result, sourceUTF8);
+	
+	return result;
+}
+
 @end
 
-extern "C" int _CheckPermission() {
+extern "C" int _NativeGallery_CheckPermission() {
 	return [UNativeGallery checkPermission];
 }
 
-extern "C" int _RequestPermission() {
+extern "C" int _NativeGallery_RequestPermission() {
 	return [UNativeGallery requestPermission];
 }
 
-extern "C" int _CanOpenSettings() {
+extern "C" int _NativeGallery_CanOpenSettings() {
 	return [UNativeGallery canOpenSettings];
 }
 
-extern "C" void _OpenSettings() {
+extern "C" void _NativeGallery_OpenSettings() {
 	[UNativeGallery openSettings];
 }
 
-extern "C" void _ImageWriteToAlbum(const char* path, const char* album) {
+extern "C" void _NativeGallery_ImageWriteToAlbum(const char* path, const char* album) {
 	[UNativeGallery saveMedia:[NSString stringWithUTF8String:path] albumName:[NSString stringWithUTF8String:album] isImg:YES];
 }
 
-extern "C" void _VideoWriteToAlbum(const char* path, const char* album) {
+extern "C" void _NativeGallery_VideoWriteToAlbum(const char* path, const char* album) {
 	[UNativeGallery saveMedia:[NSString stringWithUTF8String:path] albumName:[NSString stringWithUTF8String:album] isImg:NO];
 }
 
-extern "C" void _PickImage(const char* imageSavePath) {
+extern "C" void _NativeGallery_PickImage(const char* imageSavePath, int maxSize) {
+	[UNativeGallery pickMediaSetMaxSize:maxSize];
 	[UNativeGallery pickMedia:YES savePath:[NSString stringWithUTF8String:imageSavePath]];
 }
 
-extern "C" void _PickVideo() {
+extern "C" void _NativeGallery_PickVideo() {
 	[UNativeGallery pickMedia:NO savePath:nil];
 }
 
-extern "C" int _IsMediaPickerBusy() {
+extern "C" int _NativeGallery_IsMediaPickerBusy() {
 	return [UNativeGallery isMediaPickerBusy];
+}
+
+extern "C" char* _NativeGallery_GetImageProperties(const char* path) {
+	return [UNativeGallery getImageProperties:[NSString stringWithUTF8String:path]];
+}
+
+extern "C" char* _NativeGallery_LoadImageAtPath(const char* path, const char* temporaryFilePath, int maxSize) {
+	return [UNativeGallery loadImageAtPath:[NSString stringWithUTF8String:path] tempFilePath:[NSString stringWithUTF8String:temporaryFilePath] maximumSize:maxSize];
 }

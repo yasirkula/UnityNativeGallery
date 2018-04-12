@@ -169,7 +169,7 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 			if( "content".equalsIgnoreCase( uri.getScheme() ) )
 			{
 				String[] projection = { MediaStore.Images.Media.DATA };
-				Cursor cursor;
+				Cursor cursor = null;
 
 				try
 				{
@@ -184,6 +184,11 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 				}
 				catch( Exception e )
 				{
+				}
+				finally
+				{
+					if( cursor != null )
+						cursor.close();
 				}
 			}
 			else if( "file".equalsIgnoreCase( uri.getScheme() ) )
@@ -275,16 +280,25 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 	{
 		// Credit: https://developer.android.com/training/secure-file-sharing/retrieve-info.html#RetrieveFileInfo
 		ContentResolver resolver = getActivity().getContentResolver();
-		Cursor returnCursor = resolver.query( uri, null, null, null, null );
-		if( returnCursor == null )
-			return null;
+		Cursor returnCursor = null;
+		String filename = null;
 
-		returnCursor.moveToFirst();
-		String filename = returnCursor.getString( returnCursor.getColumnIndex( OpenableColumns.DISPLAY_NAME ) );
+		try
+		{
+			returnCursor = resolver.query( uri, null, null, null, null );
+			if( returnCursor != null && returnCursor.moveToFirst() )
+				filename = returnCursor.getString( returnCursor.getColumnIndex( OpenableColumns.DISPLAY_NAME ) );
+		}
+		finally
+		{
+			if( returnCursor != null )
+				returnCursor.close();
+		}
+
 		if( filename == null || filename.length() < 3 )
 			filename = "temp";
 
-		String extension = null;
+		String extension;
 		String mime = resolver.getType( uri );
 		if( mime != null )
 			extension = "." + MimeTypeMap.getSingleton().getExtensionFromMimeType( mime );

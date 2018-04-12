@@ -1,11 +1,10 @@
-﻿using System.Threading;
+﻿#if !UNITY_EDITOR && UNITY_ANDROID
+using System.Threading;
 using UnityEngine;
 
 namespace NativeGalleryNamespace
 {
-	public class NGPermissionCallbackAndroid
-#if UNITY_ANDROID
-	: AndroidJavaProxy
+	public class NGPermissionCallbackAndroid : AndroidJavaProxy
 	{
 		private object threadLock;
 		public int Result { get; private set; }
@@ -26,7 +25,5 @@ namespace NativeGalleryNamespace
 			}
 		}
 	}
-#else
-	{ }
-#endif
 }
+#endif

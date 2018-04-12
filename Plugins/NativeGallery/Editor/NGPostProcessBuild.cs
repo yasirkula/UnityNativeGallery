@@ -10,6 +10,7 @@ public class NGPostProcessBuild
 	private const bool ENABLED = true;
 
 	private const string PHOTO_LIBRARY_USAGE_DESCRIPTION = "Save media to Photos";
+    	private const string CAMERA_USAGE_DESCRIPTION = "Require Camera permission for capture images";
 	private const bool MINIMUM_TARGET_8_OR_ABOVE = false;
 
 #if UNITY_IOS
@@ -34,12 +35,14 @@ public class NGPostProcessBuild
 			{
 				pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework Photos" );
 				pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework MobileCoreServices" );
+				pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework ImageIO" );
 			}
 			else
 			{
 				pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-weak_framework Photos" );
 				pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework AssetsLibrary" );
 				pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework MobileCoreServices" );
+				pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework ImageIO" );
 			}
 	
 			pbxProject.RemoveFrameworkFromProject( targetGUID, "Photos.framework" );
@@ -52,6 +55,7 @@ public class NGPostProcessBuild
 			PlistElementDict rootDict = plist.root;
 			rootDict.SetString( "NSPhotoLibraryUsageDescription", PHOTO_LIBRARY_USAGE_DESCRIPTION );
 			rootDict.SetString( "NSPhotoLibraryAddUsageDescription", PHOTO_LIBRARY_USAGE_DESCRIPTION );
+            		rootDict.SetString("NSCameraUsageDescription", CAMERA_USAGE_DESCRIPTION);
 
 			File.WriteAllText( plistPath, plist.WriteToString() );
 		}
