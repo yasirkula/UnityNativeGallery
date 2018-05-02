@@ -301,8 +301,8 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 // Credit: https://stackoverflow.com/a/10531752/2373034
 + (void)pickMedia:(BOOL)imageMode savePath:(NSString *)imageSavePath {
 	imagePicker = [[UIImagePickerController alloc] init];
-    imagePicker.delegate = self;
-    imagePicker.allowsEditing = NO;
+	imagePicker.delegate = self;
+	imagePicker.allowsEditing = NO;
 	imagePicker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
 	
 	if (imageMode)
@@ -349,10 +349,10 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 	int height = 0;
 	int orientation = -1;
 
-	CGImageSourceRef imageSource = CGImageSourceCreateWithURL((CFURLRef)[NSURL fileURLWithPath:path], nil);
+	CGImageSourceRef imageSource = CGImageSourceCreateWithURL((__bridge CFURLRef)[NSURL fileURLWithPath:path], nil);
 	if (imageSource != nil) {
-		NSDictionary *options = [NSDictionary dictionaryWithObject:[NSNumber numberWithBool:NO] forKey:(NSString *)kCGImageSourceShouldCache];
-		CFDictionaryRef imageProperties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, (CFDictionaryRef)options);
+		NSDictionary *options = [NSDictionary dictionaryWithObject:[NSNumber numberWithBool:NO] forKey:(__bridge NSString *)kCGImageSourceShouldCache];
+		CFDictionaryRef imageProperties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, (__bridge CFDictionaryRef)options);
 		CFRelease(imageSource);
 
 		CGFloat widthF = 0.0f, heightF = 0.0f;
@@ -433,7 +433,7 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 	
 	// Credit: https://github.com/mbcharbonneau/UIImage-Categories/blob/master/UIImage%2BAlpha.m
 	CGImageAlphaInfo alpha = CGImageGetAlphaInfo(image.CGImage);
-    BOOL hasAlpha = alpha == kCGImageAlphaFirst || alpha == kCGImageAlphaLast || alpha == kCGImageAlphaPremultipliedFirst || alpha == kCGImageAlphaPremultipliedLast;
+	BOOL hasAlpha = alpha == kCGImageAlphaFirst || alpha == kCGImageAlphaLast || alpha == kCGImageAlphaPremultipliedFirst || alpha == kCGImageAlphaPremultipliedLast;
 	
 	CGFloat scaleRatio = scaleX < scaleY ? scaleX : scaleY;
 	CGRect imageRect = CGRectMake(0, 0, width * scaleRatio, height * scaleRatio);
@@ -489,7 +489,7 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 	imagePickerState = 2;
 	UnitySendMessage("NGMediaReceiveCallbackiOS", "OnMediaReceived", [self getCString:path]);
 
-	[picker dismissViewControllerAnimated:YES completion:nil];
+	[picker dismissViewControllerAnimated:NO completion:nil];
 }
 
 + (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker
@@ -504,7 +504,7 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 + (void)popoverControllerDidDismissPopover:(UIPopoverController *)popoverController {
 	popup = nil;
 	imagePicker = nil;
-    UnitySendMessage("NGMediaReceiveCallbackiOS", "OnMediaReceived", "");
+	UnitySendMessage("NGMediaReceiveCallbackiOS", "OnMediaReceived", "");
 }
 
 // Credit: https://stackoverflow.com/a/37052118/2373034
