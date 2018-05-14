@@ -138,6 +138,9 @@ private IEnumerator TakeScreenshotAndSave()
 
 	// Save the screenshot to Gallery/Photos
 	Debug.Log( "Permission result: " + NativeGallery.SaveImageToGallery( ss, "GalleryTest", "My img {0}.png" ) );
+	
+	// To avoid memory leaks
+	Destroy( ss );
 }
 
 private void PickImage( int maxSize )
