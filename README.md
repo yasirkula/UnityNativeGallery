@@ -84,6 +84,8 @@ Beginning with *6.0 Marshmallow*, Android apps must request runtime permissions 
 ### D. Utility Functions
 `NativeGallery.ImageProperties NativeGallery.GetImageProperties( string imagePath )`: returns an *ImageProperties* instance that holds the width, height, mime type and EXIF orientation information of an image file without creating a *Texture2D* object. Mime type will be *null*, if it can't be determined
 
+`NativeGallery.VideoProperties NativeGallery.GetVideoProperties( string videoPath )`: returns a *VideoProperties* instance that holds the width, height, duration (in milliseconds) and rotation information of a video file. To play a video in correct orientation, you should rotate it by *rotation* degrees clockwise. For a 90-degree or 270-degree rotated video, values of *width* and *height* should be swapped to get the display size of the video.
+
 `Texture2D NativeGallery.LoadImageAtPath( string imagePath, int maxSize = -1, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false )`: creates a Texture2D from the specified image file in correct orientation and returns it. Returns *null*, if something goes wrong.
 - **maxSize** determines the maximum size of the returned Texture2D in pixels. Larger textures will be down-scaled. If untouched, its value will be set to *SystemInfo.maxTextureSize*. It is recommended to set a proper maxSize for better performance
 - **markTextureNonReadable** marks the generated texture as non-readable for better memory usage. If you plan to modify the texture later (e.g. *GetPixels*/*SetPixels*), set its value to *false*
@@ -93,7 +95,7 @@ Beginning with *6.0 Marshmallow*, Android apps must request runtime permissions 
 ## Example Code
 The following code has three functions:
 - if you click the left one-third of the screen, it captures the screenshot of the game and saves it to Gallery/Photos
-- if you click the middle one-third of the screen, it picks an image from Gallery/Photos and puts it on a temporary cube that is placed in front of the camera
+- if you click the middle one-third of the screen, it picks an image from Gallery/Photos and puts it on a temporary quad that is placed in front of the camera
 - if you click the right one-third of the screen, it picks a video from Gallery/Photos and plays it
 
 ```csharp
@@ -158,19 +160,19 @@ private void PickImage( int maxSize )
 				return;
 			}
 
-			// Assign texture to a temporary cube and destroy it after 5 seconds
-			GameObject cube = GameObject.CreatePrimitive( PrimitiveType.Cube );
-			cube.transform.position = Camera.main.transform.position + Camera.main.transform.forward * 5f;
-			cube.transform.forward = -Camera.main.transform.forward;
-			cube.transform.localScale = new Vector3( 1f, texture.height / (float) texture.width, 1f );
+			// Assign texture to a temporary quad and destroy it after 5 seconds
+			GameObject quad = GameObject.CreatePrimitive( PrimitiveType.Quad );
+			quad.transform.position = Camera.main.transform.position + Camera.main.transform.forward * 2.5f;
+			quad.transform.forward = Camera.main.transform.forward;
+			quad.transform.localScale = new Vector3( 1f, texture.height / (float) texture.width, 1f );
 			
-			Material material = cube.GetComponent<Renderer>().material;
+			Material material = quad.GetComponent<Renderer>().material;
 			if( !material.shader.isSupported ) // happens when Standard shader is not included in the build
 				material.shader = Shader.Find( "Legacy Shaders/Diffuse" );
 
 			material.mainTexture = texture;
 				
-			Destroy( cube, 5f );
+			Destroy( quad, 5f );
 
 			// If a procedural texture is not destroyed manually, 
 			// it will only be freed after a scene change

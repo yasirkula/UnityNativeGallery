@@ -12,9 +12,11 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.media.ExifInterface;
+import android.media.MediaMetadataRetriever;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.Settings;
@@ -69,22 +71,24 @@ public class NativeGallery
 			return;
 		}
 
-		final Fragment request = new NativeGalleryMediaPickerFragment( mediaReceiver, imageMode, selectMultiple, mime, title );
+		Bundle bundle = new Bundle();
+		bundle.putBoolean( NativeGalleryMediaPickerFragment.IMAGE_MODE_ID, imageMode );
+		bundle.putBoolean( NativeGalleryMediaPickerFragment.SELECT_MULTIPLE_ID, selectMultiple );
+		bundle.putString( NativeGalleryMediaPickerFragment.MIME_ID, mime );
+		bundle.putString( NativeGalleryMediaPickerFragment.TITLE_ID, title );
+
+		final Fragment request = new NativeGalleryMediaPickerFragment( mediaReceiver );
+		request.setArguments( bundle );
+
 		( (Activity) context ).getFragmentManager().beginTransaction().add( 0, request ).commit();
 	}
 
+	@TargetApi( Build.VERSION_CODES.M )
 	public static int CheckPermission( Context context )
 	{
 		if( Build.VERSION.SDK_INT < Build.VERSION_CODES.M )
 			return 1;
 
-		return CheckPermissionInternal( context );
-	}
-
-	// Credit: https://github.com/Over17/UnityAndroidPermissions/blob/0dca33e40628f1f279decb67d901fd444b409cd7/src/UnityAndroidPermissions/src/main/java/com/unity3d/plugin/UnityAndroidPermissions.java
-	@TargetApi( Build.VERSION_CODES.M )
-	private static int CheckPermissionInternal( Context context )
-	{
 		if( context.checkSelfPermission( Manifest.permission.WRITE_EXTERNAL_STORAGE ) == PackageManager.PERMISSION_GRANTED &&
 				context.checkSelfPermission( Manifest.permission.READ_EXTERNAL_STORAGE ) == PackageManager.PERMISSION_GRANTED )
 			return 1;
@@ -114,10 +118,12 @@ public class NativeGallery
 	// Credit: https://stackoverflow.com/a/35456817/2373034
 	public static void OpenSettings( Context context )
 	{
+		Uri uri = Uri.fromParts( "package", context.getPackageName(), null );
+
 		Intent intent = new Intent();
 		intent.setAction( Settings.ACTION_APPLICATION_DETAILS_SETTINGS );
-		Uri uri = Uri.fromParts( "package", context.getPackageName(), null );
 		intent.setData( uri );
+
 		context.startActivity( intent );
 	}
 
@@ -389,5 +395,30 @@ public class NativeGallery
 		}
 
 		return width + ">" + height + ">" + mimeType + ">" + orientationUnity;
+	}
+
+	@TargetApi( Build.VERSION_CODES.JELLY_BEAN_MR1 )
+	public static String GetVideoProperties( Context context, final String path )
+	{
+		MediaMetadataRetriever metadataRetriever = new MediaMetadataRetriever();
+		metadataRetriever.setDataSource( path );
+
+		String width = metadataRetriever.extractMetadata( MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH );
+		String height = metadataRetriever.extractMetadata( MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT );
+		String duration = metadataRetriever.extractMetadata( MediaMetadataRetriever.METADATA_KEY_DURATION );
+		String rotation = "0";
+		if( Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 )
+			rotation = metadataRetriever.extractMetadata( MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION );
+
+		if( width == null )
+			width = "0";
+		if( height == null )
+			height = "0";
+		if( duration == null )
+			duration = "0";
+		if( rotation == null )
+			rotation = "0";
+
+		return width + ">" + height + ">" + duration + ">" + rotation;
 	}
 }

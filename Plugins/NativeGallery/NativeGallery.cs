@@ -24,6 +24,22 @@ public static class NativeGallery
 		}
 	}
 
+	public struct VideoProperties
+	{
+		public readonly int width;
+		public readonly int height;
+		public readonly long duration;
+		public readonly float rotation;
+
+		public VideoProperties( int width, int height, long duration, float rotation )
+		{
+			this.width = width;
+			this.height = height;
+			this.duration = duration;
+			this.rotation = rotation;
+		}
+	}
+
 	public enum Permission { Denied = 0, Granted = 1, ShouldAsk = 2 };
 
 	// EXIF orientation: http://sylvana.net/jpegcrop/exif_orientation.html (indices are reordered)
@@ -90,6 +106,9 @@ public static class NativeGallery
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
 	private static extern string _NativeGallery_GetImageProperties( string path );
+
+	[System.Runtime.InteropServices.DllImport( "__Internal" )]
+	private static extern string _NativeGallery_GetVideoProperties( string path );
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
 	private static extern string _NativeGallery_LoadImageAtPath( string path, string temporaryFilePath, int maxSize );
@@ -460,7 +479,7 @@ public static class NativeGallery
 	#endregion
 
 	#region Utility Functions
-	public static Texture2D LoadImageAtPath( string imagePath, int maxSize = -1, bool markTextureNonReadable = true, 
+	public static Texture2D LoadImageAtPath( string imagePath, int maxSize = -1, bool markTextureNonReadable = true,
 		bool generateMipmaps = true, bool linearColorSpace = false )
 	{
 		if( string.IsNullOrEmpty( imagePath ) )
@@ -468,7 +487,7 @@ public static class NativeGallery
 
 		if( !File.Exists( imagePath ) )
 			throw new FileNotFoundException( "File not found at " + imagePath );
-		
+
 		if( maxSize <= 0 )
 			maxSize = SystemInfo.maxTextureSize;
 
@@ -569,6 +588,44 @@ public static class NativeGallery
 		}
 
 		return new ImageProperties( width, height, mimeType, orientation );
+	}
+
+	public static VideoProperties GetVideoProperties( string videoPath )
+	{
+		if( !File.Exists( videoPath ) )
+			throw new FileNotFoundException( "File not found at " + videoPath );
+
+#if !UNITY_EDITOR && UNITY_ANDROID
+		string value = AJC.CallStatic<string>( "GetVideoProperties", Context, videoPath );
+#elif !UNITY_EDITOR && UNITY_IOS
+		string value = _NativeGallery_GetVideoProperties( videoPath );
+#else
+		string value = null;
+#endif
+
+		int width = 0, height = 0;
+		long duration = 0L;
+		float rotation = 0f;
+		if( !string.IsNullOrEmpty( value ) )
+		{
+			string[] properties = value.Split( '>' );
+			if( properties != null && properties.Length >= 4 )
+			{
+				if( !int.TryParse( properties[0].Trim(), out width ) )
+					width = 0;
+				if( !int.TryParse( properties[1].Trim(), out height ) )
+					height = 0;
+				if( !long.TryParse( properties[2].Trim(), out duration ) )
+					duration = 0L;
+				if( !float.TryParse( properties[3].Trim(), out rotation ) )
+					rotation = 0f;
+			}
+		}
+
+		if( rotation == -90f )
+			rotation = 270f;
+
+		return new VideoProperties( width, height, duration, rotation );
 	}
 	#endregion
 }

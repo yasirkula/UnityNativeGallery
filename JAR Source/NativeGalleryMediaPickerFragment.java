@@ -1,9 +1,5 @@
 package com.yasirkula.unity;
 
-/**
- * Created by yasirkula on 23.02.2018.
- */
-
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.Fragment;
@@ -27,36 +23,31 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 
+/**
+ * Created by yasirkula on 23.02.2018.
+ */
+
 public class NativeGalleryMediaPickerFragment extends Fragment
 {
 	private static final int MEDIA_REQUEST_CODE = 987455;
 
+	public static final String IMAGE_MODE_ID = "NGMP_IMAGE_MODE";
+	public static final String SELECT_MULTIPLE_ID = "NGMP_MULTIPLE";
+	public static final String MIME_ID = "NGMP_MIME";
+	public static final String TITLE_ID = "NGMP_TITLE";
+
 	private final NativeGalleryMediaReceiver mediaReceiver;
-	private final boolean imageMode;
-	private final boolean selectMultiple;
-	private final String mime;
-	private final String title;
+	private boolean selectMultiple;
 
 	private ArrayList<String> savedFiles;
 
 	private static String secondaryStoragePath = null;
 
-	public NativeGalleryMediaPickerFragment()
-	{
-		mediaReceiver = null;
-		imageMode = false;
-		selectMultiple = false;
-		mime = null;
-		title = null;
-	}
+	public NativeGalleryMediaPickerFragment() { mediaReceiver = null; }
 
-	public NativeGalleryMediaPickerFragment( final NativeGalleryMediaReceiver mediaReceiver, boolean imageMode, boolean selectMultiple, String mime, String title )
+	public NativeGalleryMediaPickerFragment( final NativeGalleryMediaReceiver mediaReceiver )
 	{
 		this.mediaReceiver = mediaReceiver;
-		this.imageMode = imageMode;
-		this.selectMultiple = selectMultiple;
-		this.mime = mime;
-		this.title = title;
 	}
 
 	@Override
@@ -64,11 +55,14 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 	{
 		super.onCreate( savedInstanceState );
 		if( mediaReceiver == null )
-		{
 			getFragmentManager().beginTransaction().remove( this ).commit();
-		}
 		else
 		{
+			boolean imageMode = getArguments().getBoolean( IMAGE_MODE_ID );
+			String mime = getArguments().getString( MIME_ID );
+			String title = getArguments().getString( TITLE_ID );
+			selectMultiple = getArguments().getBoolean( SELECT_MULTIPLE_ID );
+
 			Intent intent;
 			if( !selectMultiple )
 			{
@@ -87,7 +81,7 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 
 			intent.setType( mime );
 
-			if( title.length() > 0 )
+			if( title != null && title.length() > 0 )
 				intent.putExtra( Intent.EXTRA_TITLE, title );
 
 			startActivityForResult( Intent.createChooser( intent, title ), MEDIA_REQUEST_CODE );
@@ -174,12 +168,15 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 				try
 				{
 					cursor = getActivity().getContentResolver().query( uri, projection, selection, selectionArgs, null );
-					int column_index = cursor.getColumnIndexOrThrow( MediaStore.Images.Media.DATA );
-					if( cursor.moveToFirst() )
+					if( cursor != null )
 					{
-						String columnValue = cursor.getString( column_index );
-						if( columnValue != null && columnValue.length() > 0 )
-							return columnValue;
+						int column_index = cursor.getColumnIndexOrThrow( MediaStore.Images.Media.DATA );
+						if( cursor.moveToFirst() )
+						{
+							String columnValue = cursor.getString( column_index );
+							if( columnValue != null && columnValue.length() > 0 )
+								return columnValue;
+						}
 					}
 				}
 				catch( Exception e )
@@ -389,7 +386,8 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 			if( result.length() > 0 && !( new File( result ).exists() ) )
 				result = "";
 
-			mediaReceiver.OnMediaReceived( result );
+			if( mediaReceiver != null )
+				mediaReceiver.OnMediaReceived( result );
 		}
 		else
 		{
@@ -412,7 +410,8 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 					resultCombined += ">" + result.get( i );
 			}
 
-			mediaReceiver.OnMultipleMediaReceived( resultCombined );
+			if( mediaReceiver != null )
+				mediaReceiver.OnMultipleMediaReceived( resultCombined );
 		}
 
 		getFragmentManager().beginTransaction().remove( this ).commit();

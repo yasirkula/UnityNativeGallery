@@ -82,7 +82,9 @@ public class NativeGalleryPermissionFragment extends Fragment
 			}
 		}
 
-		permissionReceiver.OnPermissionResult( result );
+		if( permissionReceiver != null )
+			permissionReceiver.OnPermissionResult( result );
+
 		getFragmentManager().beginTransaction().remove( this ).commit();
 	}
 }
