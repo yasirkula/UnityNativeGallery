@@ -134,14 +134,18 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 
 					if( "primary".equalsIgnoreCase( split[0] ) )
 						return Environment.getExternalStorageDirectory() + File.separator + split[1];
+					else if( "raw".equalsIgnoreCase( split[0] ) ) // https://stackoverflow.com/a/51874578/2373034
+						return split[1];
 
 					return getSecondaryStoragePathFor( split[1] );
 				}
 				else if( "com.android.providers.downloads.documents".equals( uri.getAuthority() ) )
 				{
 					final String id = DocumentsContract.getDocumentId( uri );
-					uri = ContentUris.withAppendedId(
-							Uri.parse( "content://downloads/public_downloads" ), Long.valueOf( id ) );
+					if( id.startsWith( "raw:" ) ) // https://stackoverflow.com/a/51874578/2373034
+						return id.substring( 4 );
+
+					uri = ContentUris.withAppendedId( Uri.parse( "content://downloads/public_downloads" ), Long.valueOf( id ) );
 				}
 				else if( "com.android.providers.media.documents".equals( uri.getAuthority() ) )
 				{
@@ -154,6 +158,8 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 						uri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
 					else if( "audio".equals( type ) )
 						uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
+					else if( "raw".equals( type ) ) // https://stackoverflow.com/a/51874578/2373034
+						return split[1];
 
 					selection = "_id=?";
 					selectionArgs = new String[] { split[1] };
