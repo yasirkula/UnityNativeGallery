@@ -7,7 +7,7 @@
 This plugin helps you save your images and/or videos to device **Gallery** on Android and **Photos** on iOS. It is also possible to pick an image or video from Gallery/Photos. It takes only a couple of steps to set everything up:
 
 - Import **NativeGallery.unitypackage** to your project
-- *for Android*: set **Write Permission** to **External (SDCard)** in **Player Settings**
+- *for Android*: set **Write Permission** to **External (SDCard)** in **Player Settings** (alternatively, if your app won't be saving media to the Gallery but instead just reading media from it, you can add `READ_EXTERNAL_STORAGE` permission to your AndroidManifest)
 - *for iOS*: there are two ways to set up the plugin on iOS:
 
 #### a. Automated Setup for iOS

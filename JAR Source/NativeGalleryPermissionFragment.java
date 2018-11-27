@@ -23,6 +23,7 @@ import android.os.Bundle;
 @TargetApi( Build.VERSION_CODES.M )
 public class NativeGalleryPermissionFragment extends Fragment
 {
+	public static final String READ_PERMISSION_ONLY = "NG_ReadOnly";
 	private static final int PERMISSIONS_REQUEST_CODE = 123655;
 
 	private final NativeGalleryPermissionReceiver permissionReceiver;
@@ -42,14 +43,13 @@ public class NativeGalleryPermissionFragment extends Fragment
 	{
 		super.onCreate( savedInstanceState );
 		if( permissionReceiver == null )
-		{
 			getFragmentManager().beginTransaction().remove( this ).commit();
-		}
 		else
 		{
-			requestPermissions( new String[]
-					{ Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE },
-					PERMISSIONS_REQUEST_CODE );
+			boolean readPermissionOnly = getArguments().getBoolean( READ_PERMISSION_ONLY );
+			String[] permissions = readPermissionOnly ? new String[] { Manifest.permission.READ_EXTERNAL_STORAGE } :
+					new String[] { Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE };
+			requestPermissions( permissions, PERMISSIONS_REQUEST_CODE );
 		}
 	}
 

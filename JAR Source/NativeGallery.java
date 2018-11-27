@@ -61,7 +61,7 @@ public class NativeGallery
 
 	public static void PickMedia( Context context, final NativeGalleryMediaReceiver mediaReceiver, boolean imageMode, boolean selectMultiple, String mime, String title )
 	{
-		if( CheckPermission( context ) != 1 )
+		if( CheckPermission( context, true ) != 1 )
 		{
 			if( !selectMultiple )
 				mediaReceiver.OnMediaReceived( "" );
@@ -84,22 +84,24 @@ public class NativeGallery
 	}
 
 	@TargetApi( Build.VERSION_CODES.M )
-	public static int CheckPermission( Context context )
+	public static int CheckPermission( Context context, final boolean readPermissionOnly )
 	{
 		if( Build.VERSION.SDK_INT < Build.VERSION_CODES.M )
 			return 1;
 
-		if( context.checkSelfPermission( Manifest.permission.WRITE_EXTERNAL_STORAGE ) == PackageManager.PERMISSION_GRANTED &&
-				context.checkSelfPermission( Manifest.permission.READ_EXTERNAL_STORAGE ) == PackageManager.PERMISSION_GRANTED )
-			return 1;
+		if( context.checkSelfPermission( Manifest.permission.READ_EXTERNAL_STORAGE ) == PackageManager.PERMISSION_GRANTED )
+		{
+			if( readPermissionOnly || context.checkSelfPermission( Manifest.permission.WRITE_EXTERNAL_STORAGE ) == PackageManager.PERMISSION_GRANTED )
+				return 1;
+		}
 
 		return 0;
 	}
 
 	// Credit: https://github.com/Over17/UnityAndroidPermissions/blob/0dca33e40628f1f279decb67d901fd444b409cd7/src/UnityAndroidPermissions/src/main/java/com/unity3d/plugin/UnityAndroidPermissions.java
-	public static void RequestPermission( Context context, final NativeGalleryPermissionReceiver permissionReceiver, final int lastCheckResult )
+	public static void RequestPermission( Context context, final NativeGalleryPermissionReceiver permissionReceiver, final boolean readPermissionOnly, final int lastCheckResult )
 	{
-		if( CheckPermission( context ) == 1 )
+		if( CheckPermission( context, readPermissionOnly ) == 1 )
 		{
 			permissionReceiver.OnPermissionResult( 1 );
 			return;
@@ -111,7 +113,12 @@ public class NativeGallery
 			return;
 		}
 
+		Bundle bundle = new Bundle();
+		bundle.putBoolean( NativeGalleryPermissionFragment.READ_PERMISSION_ONLY, readPermissionOnly );
+
 		final Fragment request = new NativeGalleryPermissionFragment( permissionReceiver );
+		request.setArguments( bundle );
+
 		( (Activity) context ).getFragmentManager().beginTransaction().add( 0, request ).commit();
 	}
 
@@ -387,7 +394,7 @@ public class NativeGallery
 			orientationUnity = -1;
 
 		if( orientation == ExifInterface.ORIENTATION_ROTATE_90 || orientation == ExifInterface.ORIENTATION_ROTATE_270 ||
-			orientation == ExifInterface.ORIENTATION_TRANSPOSE || orientation == ExifInterface.ORIENTATION_TRANSVERSE )
+				orientation == ExifInterface.ORIENTATION_TRANSPOSE || orientation == ExifInterface.ORIENTATION_TRANSVERSE )
 		{
 			int temp = width;
 			width = height;

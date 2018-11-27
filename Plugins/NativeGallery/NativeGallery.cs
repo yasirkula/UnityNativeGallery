@@ -150,10 +150,10 @@ public static class NativeGallery
 	#endregion
 
 	#region Runtime Permissions
-	public static Permission CheckPermission()
+	public static Permission CheckPermission( bool readPermissionOnly = false )
 	{
 #if !UNITY_EDITOR && UNITY_ANDROID
-		Permission result = (Permission) AJC.CallStatic<int>( "CheckPermission", Context );
+		Permission result = (Permission) AJC.CallStatic<int>( "CheckPermission", Context, readPermissionOnly );
 		if( result == Permission.Denied && (Permission) PlayerPrefs.GetInt( "NativeGalleryPermission", (int) Permission.ShouldAsk ) == Permission.ShouldAsk )
 			result = Permission.ShouldAsk;
 
@@ -165,7 +165,7 @@ public static class NativeGallery
 #endif
 	}
 
-	public static Permission RequestPermission()
+	public static Permission RequestPermission( bool readPermissionOnly = false )
 	{
 #if !UNITY_EDITOR && UNITY_ANDROID
 		object threadLock = new object();
@@ -173,7 +173,7 @@ public static class NativeGallery
 		{
 			NGPermissionCallbackAndroid nativeCallback = new NGPermissionCallbackAndroid( threadLock );
 
-			AJC.CallStatic( "RequestPermission", Context, nativeCallback, PlayerPrefs.GetInt( "NativeGalleryPermission", (int) Permission.ShouldAsk ) );
+			AJC.CallStatic( "RequestPermission", Context, nativeCallback, readPermissionOnly, PlayerPrefs.GetInt( "NativeGalleryPermission", (int) Permission.ShouldAsk ) );
 
 			if( nativeCallback.Result == -1 )
 				System.Threading.Monitor.Wait( threadLock );
@@ -290,7 +290,7 @@ public static class NativeGallery
 	#region Internal Functions
 	private static Permission SaveToGallery( byte[] mediaBytes, string album, string filenameFormatted, bool isImage, MediaSaveCallback callback )
 	{
-		Permission result = RequestPermission();
+		Permission result = RequestPermission( false );
 		if( result == Permission.Granted )
 		{
 			if( mediaBytes == null || mediaBytes.Length == 0 )
@@ -314,7 +314,7 @@ public static class NativeGallery
 
 	private static Permission SaveToGallery( string existingMediaPath, string album, string filenameFormatted, bool isImage, MediaSaveCallback callback )
 	{
-		Permission result = RequestPermission();
+		Permission result = RequestPermission( false );
 		if( result == Permission.Granted )
 		{
 			if( !File.Exists( existingMediaPath ) )
@@ -399,7 +399,7 @@ public static class NativeGallery
 
 	private static Permission GetMediaFromGallery( MediaPickCallback callback, bool imageMode, string mime, string title, int maxSize )
 	{
-		Permission result = RequestPermission();
+		Permission result = RequestPermission( true );
 		if( result == Permission.Granted && !IsMediaPickerBusy() )
 		{
 #if !UNITY_EDITOR && UNITY_ANDROID
@@ -442,7 +442,7 @@ public static class NativeGallery
 
 	private static Permission GetMultipleMediaFromGallery( MediaPickMultipleCallback callback, bool imageMode, string mime, string title, int maxSize )
 	{
-		Permission result = RequestPermission();
+		Permission result = RequestPermission( true );
 		if( result == Permission.Granted && !IsMediaPickerBusy() )
 		{
 			if( CanSelectMultipleFilesFromGallery() )

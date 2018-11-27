@@ -292,6 +292,10 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 			if( returnCursor != null && returnCursor.moveToFirst() )
 				filename = returnCursor.getString( returnCursor.getColumnIndex( OpenableColumns.DISPLAY_NAME ) );
 		}
+		catch( Exception e )
+		{
+			Log.e( "Unity", "Exception:", e );
+		}
 		finally
 		{
 			if( returnCursor != null )
