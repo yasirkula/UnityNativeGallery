@@ -33,7 +33,7 @@ public class NativeGallery
 {
 	public static String GetMediaPath( String directoryName )
 	{
-		String path = Environment.getExternalStoragePublicDirectory( Environment.DIRECTORY_DCIM ).getAbsolutePath();
+		String path = Environment.getExternalStorageDirectory().getAbsolutePath();
 		if( path.charAt( path.length() - 1 ) != File.separatorChar )
 			path = path + File.separator;
 

@@ -229,11 +229,11 @@ public static class NativeGallery
 			throw new ArgumentException( "Parameter 'image' is null!" );
 
 		if( filenameFormatted.EndsWith( ".jpeg" ) || filenameFormatted.EndsWith( ".jpg" ) )
-			return SaveToGallery( image.EncodeToJPG( 100 ), album, filenameFormatted, true, callback );
+			return SaveToGallery( GetTextureBytes( image, true ), album, filenameFormatted, true, callback );
 		else if( filenameFormatted.EndsWith( ".png" ) )
-			return SaveToGallery( image.EncodeToPNG(), album, filenameFormatted, true, callback );
+			return SaveToGallery( GetTextureBytes( image, false ), album, filenameFormatted, true, callback );
 		else
-			return SaveToGallery( image.EncodeToPNG(), album, filenameFormatted + ".png", true, callback );
+			return SaveToGallery( GetTextureBytes( image, false ), album, filenameFormatted + ".png", true, callback );
 	}
 
 	public static Permission SaveVideoToGallery( byte[] mediaBytes, string album, string filenameFormatted, MediaSaveCallback callback = null )
@@ -403,23 +403,7 @@ public static class NativeGallery
 		if( result == Permission.Granted && !IsMediaPickerBusy() )
 		{
 #if !UNITY_EDITOR && UNITY_ANDROID
-			object threadLock = new object();
-			lock( threadLock )
-			{
-				NGMediaReceiveCallbackAndroid nativeCallback = new NGMediaReceiveCallbackAndroid( threadLock );
-
-				AJC.CallStatic( "PickMedia", Context, nativeCallback, imageMode, false, mime, title );
-
-				if( string.IsNullOrEmpty( nativeCallback.Path ) )
-					System.Threading.Monitor.Wait( threadLock );
-
-				string path = nativeCallback.Path;
-				if( string.IsNullOrEmpty( path ) )
-					path = null;
-
-				if( callback != null )
-					callback( path );
-			}
+			AJC.CallStatic( "PickMedia", Context, new NGMediaReceiveCallbackAndroid( callback, null ), imageMode, false, mime, title );
 #elif !UNITY_EDITOR && UNITY_IOS
 			NGMediaReceiveCallbackiOS.Initialize( callback );
 			if( imageMode )
@@ -448,23 +432,7 @@ public static class NativeGallery
 			if( CanSelectMultipleFilesFromGallery() )
 			{
 #if !UNITY_EDITOR && UNITY_ANDROID
-				object threadLock = new object();
-				lock( threadLock )
-				{
-					NGMediaReceiveCallbackAndroid nativeCallback = new NGMediaReceiveCallbackAndroid( threadLock );
-
-					AJC.CallStatic( "PickMedia", Context, nativeCallback, imageMode, true, mime, title );
-
-					if( nativeCallback.Paths == null )
-						System.Threading.Monitor.Wait( threadLock );
-
-					string[] paths = nativeCallback.Paths;
-					if( paths != null && paths.Length == 0 )
-						paths = null;
-
-					if( callback != null )
-						callback( paths );
-				}
+				AJC.CallStatic( "PickMedia", Context, new NGMediaReceiveCallbackAndroid( null, callback ), imageMode, true, mime, title );
 #else
 				if( callback != null )
 					callback( null );
@@ -475,6 +443,59 @@ public static class NativeGallery
 		}
 
 		return result;
+	}
+
+	private static byte[] GetTextureBytes( Texture2D texture, bool isJpeg )
+	{
+		try
+		{
+			return isJpeg ? texture.EncodeToJPG( 100 ) : texture.EncodeToPNG();
+		}
+		catch( UnityException )
+		{
+			// Texture is marked as non-readable, create a readable copy and save it instead
+			Debug.LogWarning( "Saving non-readable textures is slower than saving readable textures" );
+
+			Texture2D sourceTexReadable = null;
+			RenderTexture rt = RenderTexture.GetTemporary( texture.width, texture.height );
+			RenderTexture activeRT = RenderTexture.active;
+
+			try
+			{
+				Graphics.Blit( texture, rt );
+				RenderTexture.active = rt;
+
+				sourceTexReadable = new Texture2D( texture.width, texture.height, texture.format, false );
+				sourceTexReadable.ReadPixels( new Rect( 0, 0, texture.width, texture.height ), 0, 0, false );
+				sourceTexReadable.Apply( false, false );
+			}
+			catch( Exception e )
+			{
+				Debug.LogException( e );
+
+				Object.DestroyImmediate( sourceTexReadable );
+				return null;
+			}
+			finally
+			{
+				RenderTexture.active = activeRT;
+				RenderTexture.ReleaseTemporary( rt );
+			}
+
+			try
+			{
+				return isJpeg ? sourceTexReadable.EncodeToJPG( 100 ) : sourceTexReadable.EncodeToPNG();
+			}
+			catch( Exception e )
+			{
+				Debug.LogException( e );
+				return null;
+			}
+			finally
+			{
+				Object.DestroyImmediate( sourceTexReadable );
+			}
+		}
 	}
 	#endregion
 

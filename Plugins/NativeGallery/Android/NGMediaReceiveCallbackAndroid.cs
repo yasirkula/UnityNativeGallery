@@ -1,37 +1,30 @@
 ﻿#if !UNITY_EDITOR && UNITY_ANDROID
-using System.Threading;
+using System.Collections;
 using UnityEngine;
 
 namespace NativeGalleryNamespace
 {
 	public class NGMediaReceiveCallbackAndroid : AndroidJavaProxy
 	{
-		private object threadLock;
+		private NativeGallery.MediaPickCallback callback;
+		private NativeGallery.MediaPickMultipleCallback callbackMultiple;
 
-		public string Path { get; private set; }
-		public string[] Paths { get; private set; }
-
-		public NGMediaReceiveCallbackAndroid( object threadLock ) : base( "com.yasirkula.unity.NativeGalleryMediaReceiver" )
+		public NGMediaReceiveCallbackAndroid( NativeGallery.MediaPickCallback callback, NativeGallery.MediaPickMultipleCallback callbackMultiple ) : base( "com.yasirkula.unity.NativeGalleryMediaReceiver" )
 		{
-			Path = string.Empty;
-			this.threadLock = threadLock;
+			this.callback = callback;
+			this.callbackMultiple = callbackMultiple;
 		}
 
 		public void OnMediaReceived( string path )
 		{
-			Path = path;
-
-			lock( threadLock )
-			{
-				Monitor.Pulse( threadLock );
-			}
+			NGCallbackHelper coroutineHolder = new GameObject( "NGCallbackHelper" ).AddComponent<NGCallbackHelper>();
+			coroutineHolder.StartCoroutine( MediaReceiveCoroutine( coroutineHolder.gameObject, path ) );
 		}
 
 		public void OnMultipleMediaReceived( string paths )
 		{
-			if( string.IsNullOrEmpty( paths ) )
-				Paths = new string[0];
-			else
+			string[] result = null;
+			if( !string.IsNullOrEmpty( paths ) )
 			{
 				string[] pathsSplit = paths.Split( '>' );
 
@@ -56,12 +49,46 @@ namespace NativeGalleryNamespace
 					pathsSplit = validPaths;
 				}
 
-				Paths = pathsSplit;
+				result = pathsSplit;
 			}
-			
-			lock( threadLock )
+
+			NGCallbackHelper coroutineHolder = new GameObject( "NGCallbackHelper" ).AddComponent<NGCallbackHelper>();
+			coroutineHolder.StartCoroutine( MediaReceiveMultipleCoroutine( coroutineHolder.gameObject, result ) );
+		}
+
+		private IEnumerator MediaReceiveCoroutine( GameObject obj, string path )
+		{
+			yield return null;
+
+			if( string.IsNullOrEmpty( path ) )
+				path = null;
+
+			try
 			{
-				Monitor.Pulse( threadLock );
+				if( callback != null )
+					callback( path );
+			}
+			finally
+			{
+				Object.Destroy( obj );
+			}
+		}
+
+		private IEnumerator MediaReceiveMultipleCoroutine( GameObject obj, string[] paths )
+		{
+			yield return null;
+
+			if( paths != null && paths.Length == 0 )
+				paths = null;
+
+			try
+			{
+				if( callbackMultiple != null )
+					callbackMultiple( paths );
+			}
+			finally
+			{
+				Object.Destroy( obj );
 			}
 		}
 	}
