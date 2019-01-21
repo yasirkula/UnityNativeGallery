@@ -1,24 +1,25 @@
 ﻿#if !UNITY_EDITOR && UNITY_ANDROID
-using System.Collections;
 using UnityEngine;
 
 namespace NativeGalleryNamespace
 {
 	public class NGMediaReceiveCallbackAndroid : AndroidJavaProxy
 	{
-		private NativeGallery.MediaPickCallback callback;
-		private NativeGallery.MediaPickMultipleCallback callbackMultiple;
+		private readonly NativeGallery.MediaPickCallback callback;
+		private readonly NativeGallery.MediaPickMultipleCallback callbackMultiple;
+
+		private readonly NGCallbackHelper callbackHelper;
 
 		public NGMediaReceiveCallbackAndroid( NativeGallery.MediaPickCallback callback, NativeGallery.MediaPickMultipleCallback callbackMultiple ) : base( "com.yasirkula.unity.NativeGalleryMediaReceiver" )
 		{
 			this.callback = callback;
 			this.callbackMultiple = callbackMultiple;
+			callbackHelper = new GameObject( "NGCallbackHelper" ).AddComponent<NGCallbackHelper>();
 		}
 
 		public void OnMediaReceived( string path )
 		{
-			NGCallbackHelper coroutineHolder = new GameObject( "NGCallbackHelper" ).AddComponent<NGCallbackHelper>();
-			coroutineHolder.StartCoroutine( MediaReceiveCoroutine( coroutineHolder.gameObject, path ) );
+			callbackHelper.CallOnMainThread( () => MediaReceiveCallback( path ) );
 		}
 
 		public void OnMultipleMediaReceived( string paths )
@@ -52,14 +53,11 @@ namespace NativeGalleryNamespace
 				result = pathsSplit;
 			}
 
-			NGCallbackHelper coroutineHolder = new GameObject( "NGCallbackHelper" ).AddComponent<NGCallbackHelper>();
-			coroutineHolder.StartCoroutine( MediaReceiveMultipleCoroutine( coroutineHolder.gameObject, result ) );
+			callbackHelper.CallOnMainThread( () => MediaReceiveMultipleCallback( result ) );
 		}
 
-		private IEnumerator MediaReceiveCoroutine( GameObject obj, string path )
+		private void MediaReceiveCallback( string path )
 		{
-			yield return null;
-
 			if( string.IsNullOrEmpty( path ) )
 				path = null;
 
@@ -70,14 +68,12 @@ namespace NativeGalleryNamespace
 			}
 			finally
 			{
-				Object.Destroy( obj );
+				Object.Destroy( callbackHelper );
 			}
 		}
 
-		private IEnumerator MediaReceiveMultipleCoroutine( GameObject obj, string[] paths )
+		private void MediaReceiveMultipleCallback( string[] paths )
 		{
-			yield return null;
-
 			if( paths != null && paths.Length == 0 )
 				paths = null;
 
@@ -88,7 +84,7 @@ namespace NativeGalleryNamespace
 			}
 			finally
 			{
-				Object.Destroy( obj );
+				Object.Destroy( callbackHelper );
 			}
 		}
 	}
