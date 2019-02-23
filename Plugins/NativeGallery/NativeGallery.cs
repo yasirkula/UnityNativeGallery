@@ -453,48 +453,61 @@ public static class NativeGallery
 		}
 		catch( UnityException )
 		{
-			// Texture is marked as non-readable, create a readable copy and save it instead
-			Debug.LogWarning( "Saving non-readable textures is slower than saving readable textures" );
+			return GetTextureBytesFromCopy( texture, isJpeg );
+		}
+		catch( ArgumentException )
+		{
+			return GetTextureBytesFromCopy( texture, isJpeg );
+		}
 
-			Texture2D sourceTexReadable = null;
-			RenderTexture rt = RenderTexture.GetTemporary( texture.width, texture.height );
-			RenderTexture activeRT = RenderTexture.active;
+#pragma warning disable 0162
+		return null;
+#pragma warning restore 0162
+	}
 
-			try
-			{
-				Graphics.Blit( texture, rt );
-				RenderTexture.active = rt;
+	private static byte[] GetTextureBytesFromCopy( Texture2D texture, bool isJpeg )
+	{
+		// Texture is marked as non-readable, create a readable copy and save it instead
+		Debug.LogWarning( "Saving non-readable textures is slower than saving readable textures" );
 
-				sourceTexReadable = new Texture2D( texture.width, texture.height, texture.format, false );
-				sourceTexReadable.ReadPixels( new Rect( 0, 0, texture.width, texture.height ), 0, 0, false );
-				sourceTexReadable.Apply( false, false );
-			}
-			catch( Exception e )
-			{
-				Debug.LogException( e );
+		Texture2D sourceTexReadable = null;
+		RenderTexture rt = RenderTexture.GetTemporary( texture.width, texture.height );
+		RenderTexture activeRT = RenderTexture.active;
 
-				Object.DestroyImmediate( sourceTexReadable );
-				return null;
-			}
-			finally
-			{
-				RenderTexture.active = activeRT;
-				RenderTexture.ReleaseTemporary( rt );
-			}
+		try
+		{
+			Graphics.Blit( texture, rt );
+			RenderTexture.active = rt;
 
-			try
-			{
-				return isJpeg ? sourceTexReadable.EncodeToJPG( 100 ) : sourceTexReadable.EncodeToPNG();
-			}
-			catch( Exception e )
-			{
-				Debug.LogException( e );
-				return null;
-			}
-			finally
-			{
-				Object.DestroyImmediate( sourceTexReadable );
-			}
+			sourceTexReadable = new Texture2D( texture.width, texture.height, texture.format, false );
+			sourceTexReadable.ReadPixels( new Rect( 0, 0, texture.width, texture.height ), 0, 0, false );
+			sourceTexReadable.Apply( false, false );
+		}
+		catch( Exception e )
+		{
+			Debug.LogException( e );
+
+			Object.DestroyImmediate( sourceTexReadable );
+			return null;
+		}
+		finally
+		{
+			RenderTexture.active = activeRT;
+			RenderTexture.ReleaseTemporary( rt );
+		}
+
+		try
+		{
+			return isJpeg ? sourceTexReadable.EncodeToJPG( 100 ) : sourceTexReadable.EncodeToPNG();
+		}
+		catch( Exception e )
+		{
+			Debug.LogException( e );
+			return null;
+		}
+		finally
+		{
+			Object.DestroyImmediate( sourceTexReadable );
 		}
 	}
 	#endregion
