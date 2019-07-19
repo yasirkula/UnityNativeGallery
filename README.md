@@ -33,9 +33,11 @@ Delete *Plugins/NativeGallery.cs*, *Plugins/Android/NativeGallery.jar* and *Plug
 
 ## FAQ
 - **Can't access the Gallery, it says "java.lang.ClassNotFoundException: com.yasirkula.unity.NativeGallery" in Logcat**
+
 If your project uses ProGuard, try adding the following line to ProGuard filters: `-keep class com.yasirkula.unity.* { *; }`
 
 - **Nothing happens when I try to access the Gallery on Android**
+
 Make sure that you've set the **Write Permission** to **External (SDCard)** in *Player Settings*.
 
 ## How To
