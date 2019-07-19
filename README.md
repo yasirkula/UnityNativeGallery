@@ -31,6 +31,13 @@ This plugin helps you save your images and/or videos to device **Gallery** on An
 ## Upgrading From Previous Versions
 Delete *Plugins/NativeGallery.cs*, *Plugins/Android/NativeGallery.jar* and *Plugins/iOS/NativeGallery.mm* before upgrading the plugin.
 
+## FAQ
+- **Can't access the Gallery, it says "java.lang.ClassNotFoundException: com.yasirkula.unity.NativeGallery" in Logcat**
+If your project uses ProGuard, try adding the following line to ProGuard filters: `-keep class com.yasirkula.unity.* { *; }`
+
+- **Nothing happens when I try to access the Gallery on Android**
+Make sure that you've set the **Write Permission** to **External (SDCard)** in *Player Settings*.
+
 ## How To
 ### A. Saving Media To Gallery/Photos
 `NativeGallery.SaveImageToGallery( byte[] mediaBytes, string album, string filenameFormatted, MediaSaveCallback callback = null )`: use this function if you have the raw bytes of the image. 
