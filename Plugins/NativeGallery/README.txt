@@ -41,14 +41,14 @@ delegate void MediaPickMultipleCallback( string[] paths );
 
 //// Saving Media To Gallery/Photos ////
 
-// On Android, your images are saved at DCIM/album/filenameFormatted. On iOS, the image will be saved in the corresponding album
-// filenameFormatted is string.Format'ed to avoid overwriting the same file on Android, if desired. If, for example, you want your images to be saved in a format like "My img 1.png", "My img 2.png" and etc., you can set the filenameFormatted as "My img {0}.png". {0} here is replaced with a unique number to avoid overwriting an existing file. If you don't use a {0} in your filenameFormatted parameter and a file with the same name does exist at that path, the file will be overwritten. On the other hand, a saved image is never overwritten on iOS
+// On Android, your images are saved at DCIM/album/filename. On iOS, the image will be saved in the corresponding album.
+// IMPORTANT: NativeGallery will never overwrite existing media on the Gallery. If there is a name conflict, NativeGallery will ensure a unique filename. So don't put '{0}' in filename anymore (for new users, putting {0} in filename was recommended in order to ensure unique filenames in earlier versions, this is no longer necessary).
 // MediaSaveCallback takes a string parameter which stores an error string if something goes wrong while saving the image/video, or null if it is saved successfully
-NativeGallery.Permission NativeGallery.SaveImageToGallery( byte[] mediaBytes, string album, string filenameFormatted, MediaSaveCallback callback = null );
-NativeGallery.Permission NativeGallery.SaveImageToGallery( string existingMediaPath, string album, string filenameFormatted, MediaSaveCallback callback = null );
-NativeGallery.Permission NativeGallery.SaveImageToGallery( Texture2D image, string album, string filenameFormatted, MediaSaveCallback callback = null );
-NativeGallery.Permission NativeGallery.SaveVideoToGallery( byte[] mediaBytes, string album, string filenameFormatted, MediaSaveCallback callback = null );
-NativeGallery.Permission NativeGallery.SaveVideoToGallery( string existingMediaPath, string album, string filenameFormatted, MediaSaveCallback callback = null );
+NativeGallery.Permission NativeGallery.SaveImageToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null );
+NativeGallery.Permission NativeGallery.SaveImageToGallery( string existingMediaPath, string album, string filename, MediaSaveCallback callback = null );
+NativeGallery.Permission NativeGallery.SaveImageToGallery( Texture2D image, string album, string filename, MediaSaveCallback callback = null );
+NativeGallery.Permission NativeGallery.SaveVideoToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null );
+NativeGallery.Permission NativeGallery.SaveVideoToGallery( string existingMediaPath, string album, string filename, MediaSaveCallback callback = null );
 
 
 //// Retrieving Media From Gallery/Photos ////
@@ -57,11 +57,10 @@ NativeGallery.Permission NativeGallery.SaveVideoToGallery( string existingMediaP
 // MediaPickCallback takes a string parameter which stores the path of the selected image/video, or null if nothing is selected
 // MediaPickMultipleCallback takes a string[] parameter which stores the path(s) of the selected image(s)/video(s), or null if nothing is selected
 // title: determines the title of the image picker dialog on Android. Has no effect on iOS
-// mime: filters the available images/videos on Android. For example, to request a JPEG image from the user, mime can be set as "image/jpeg". Setting multiple mime types is not possible (in that case, you should leave mime as is). On iOS, selected images will always be in PNG format and thus, this parameter has no effect on iOS
-// maxSize: determines the maximum size of the returned image in pixels on iOS. A larger image will be down-scaled for better performance. If untouched, its value will be set to SystemInfo.maxTextureSize. Has no effect on Android
-NativeGallery.Permission NativeGallery.GetImageFromGallery( MediaPickCallback callback, string title = "", string mime = "image/*", int maxSize = -1 );
+// mime: filters the available images/videos on Android. For example, to request a JPEG image from the user, mime can be set as "image/jpeg". Setting multiple mime types is not possible (in that case, you should leave mime as is). Has no effect on iOS
+NativeGallery.Permission NativeGallery.GetImageFromGallery( MediaPickCallback callback, string title = "", string mime = "image/*" );
 NativeGallery.Permission NativeGallery.GetVideoFromGallery( MediaPickCallback callback, string title = "", string mime = "video/*" );
-NativeGallery.Permission NativeGallery.GetImagesFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "image/*", int maxSize = -1 );
+NativeGallery.Permission NativeGallery.GetImagesFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "image/*" );
 NativeGallery.Permission NativeGallery.GetVideosFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "video/*" );
 
 // Returns true if selecting multiple images/videos from Gallery/Photos is possible on this device (only available on Android 18 and later; iOS not supported)

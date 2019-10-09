@@ -6,32 +6,27 @@
 
 This plugin helps you save your images and/or videos to device **Gallery** on Android and **Photos** on iOS. It is also possible to pick an image or video from Gallery/Photos. It takes only a couple of steps to set everything up:
 
-- Import **NativeGallery.unitypackage** to your project
-- *for Android*: set **Write Permission** to **External (SDCard)** in **Player Settings** (alternatively, if your app won't be saving media to the Gallery but instead just reading media from it, you can add `READ_EXTERNAL_STORAGE` permission to your AndroidManifest)
-- *for iOS*: there are two ways to set up the plugin on iOS:
+After importing [NativeGallery.unitypackage](https://github.com/yasirkula/UnityNativeGallery/releases) to your project, only a few steps are required to set up the plugin:
 
-#### a. Automated Setup for iOS
-- change the value of **PHOTO_LIBRARY_USAGE_DESCRIPTION** in *Plugins/NativeGallery/Editor/NGPostProcessBuild.cs* (optional)
+### Android Setup
+
+Set **Write Permission** to **External (SDCard)** in **Player Settings**. Alternatively, if your app won't be saving media to the Gallery but instead just reading media from it, you can add `READ_EXTERNAL_STORAGE` permission to your AndroidManifest.
+
+### iOS Setup
+
+There are two ways to set up the plugin on iOS:
+
+**a. Automated Setup for iOS**
+
+- (optional) change the value of **PHOTO_LIBRARY_USAGE_DESCRIPTION** in *Plugins/NativeGallery/Editor/NGPostProcessBuild.cs*
 - if your minimum *Deployment Target* (iOS Version) is at least 8.0, set the value of **MINIMUM_TARGET_8_OR_ABOVE** to *true* in *NGPostProcessBuild.cs*
 
-#### b. Manual Setup for iOS
-- set the value of **ENABLED** to *false* in *NGPostProcessBuild.cs*
-- build your project
-- enter a **Photo Library Usage Description** in Xcode
+**b. Manual Setup for iOS**
 
-![PhotoLibraryUsageDescription](screenshots/1.png)
-
-- also enter a **Photo Library Additions Usage Description**, if exists (see: https://github.com/yasirkula/UnityNativeGallery/issues/3)
-- insert `-weak_framework Photos -framework AssetsLibrary -framework MobileCoreServices -framework ImageIO` to the **Other Linker Flags** of *Unity-iPhone Target* (if your **Deployment Target** is at least 8.0, it is sufficient to insert `-framework Photos -framework MobileCoreServices -framework ImageIO`):
-
-![OtherLinkerFlags](screenshots/2.png)
-
-- lastly, remove *Photos.framework* from **Link Binary With Libraries** of *Unity-iPhone Target* in **Build Phases**, if exists
-
-## Upgrading From Previous Versions
-Delete *Plugins/NativeGallery.cs*, *Plugins/Android/NativeGallery.jar* and *Plugins/iOS/NativeGallery.mm* before upgrading the plugin.
+- see: https://github.com/yasirkula/UnityNativeGallery/wiki/Manual-Setup-for-iOS
 
 ## FAQ
+
 - **Can't access the Gallery, it says "java.lang.ClassNotFoundException: com.yasirkula.unity.NativeGallery" in Logcat**
 
 If your project uses ProGuard, try adding the following line to ProGuard filters: `-keep class com.yasirkula.unity.* { *; }`
@@ -41,30 +36,33 @@ If your project uses ProGuard, try adding the following line to ProGuard filters
 Make sure that you've set the **Write Permission** to **External (SDCard)** in *Player Settings*.
 
 ## How To
+
 ### A. Saving Media To Gallery/Photos
-`NativeGallery.SaveImageToGallery( byte[] mediaBytes, string album, string filenameFormatted, MediaSaveCallback callback = null )`: use this function if you have the raw bytes of the image. 
-- On Android, your images are saved at **DCIM/album/filenameFormatted**. On iOS, the image will be saved in the corresponding album
-- **filenameFormatted** is string.Format'ed to avoid overwriting the same file on Android, if desired. If, for example, you want your images to be saved in a format like "*My img 1.png*", "*My img 2.png*" and etc., you can set the filenameFormatted as "**My img {0}.png**". *{0}* here is replaced with a unique number to avoid overwriting an existing file. If you don't use a {0} in your filenameFormatted parameter and a file with the same name does exist at that path, the file will be overwritten. On the other hand, a saved image is **never overwritten on iOS**
+
+`NativeGallery.SaveImageToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null )`: use this function if you have the raw bytes of the image. 
+- On Android, your images are saved at **DCIM/album/filename**. On iOS, the image will be saved in the corresponding album
 - **MediaSaveCallback** takes a string parameter which stores an error string if something goes wrong while saving the image/video, or *null* if it is saved successfully. This parameter is optional
 
-`NativeGallery.SaveImageToGallery( string existingMediaPath, string album, string filenameFormatted, MediaSaveCallback callback = null )`: use this function if the image is already saved on disk. Enter the file's path to **existingMediaPath**. The file will be **copied** to **DCIM/album/filenameFormatted** on Android and *temporarily* copied to **Application.persistentDataPath/filenameFormatted** on iOS (copied file will automatically be deleted after saving the image as iOS keeps a separate copy of its media files in its internal directory).
+**IMPORTANT:** NativeGallery will never overwrite existing media on the Gallery. If there is a name conflict, NativeGallery will ensure a unique filename. So don't put `{0}` in filename anymore (for new users, putting {0} in filename was recommended in order to ensure unique filenames in earlier versions, this is no longer necessary).
 
-`NativeGallery.SaveImageToGallery( Texture2D image, string album, string filenameFormatted, MediaSaveCallback callback = null )`: use this function to easily save a **Texture2D** to Gallery/Photos. If filenameFormatted ends with "*.jpeg*" or "*.jpg*", texture will be saved as JPEG; otherwise, it will be saved as PNG.
+`NativeGallery.SaveImageToGallery( string existingMediaPath, string album, string filename, MediaSaveCallback callback = null )`: use this function if the image is already saved on disk. Enter the file's path to **existingMediaPath**.
 
-`NativeGallery.SaveVideoToGallery( byte[] mediaBytes, string album, string filenameFormatted, MediaSaveCallback callback = null )`: use this function if you have the raw bytes of the video. This function works similar to its *SaveImageToGallery* equivalent.
+`NativeGallery.SaveImageToGallery( Texture2D image, string album, string filename, MediaSaveCallback callback = null )`: use this function to easily save a **Texture2D** to Gallery/Photos. If filename ends with "*.jpeg*" or "*.jpg*", texture will be saved as JPEG; otherwise, it will be saved as PNG.
 
-`NativeGallery.SaveVideoToGallery( string existingMediaPath, string album, string filenameFormatted, MediaSaveCallback callback = null )`: use this function if the video is already saved on disk. This function works similar to its *SaveImageToGallery* equivalent.
+`NativeGallery.SaveVideoToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null )`: use this function if you have the raw bytes of the video. This function works similar to its *SaveImageToGallery* equivalent.
+
+`NativeGallery.SaveVideoToGallery( string existingMediaPath, string album, string filename, MediaSaveCallback callback = null )`: use this function if the video is already saved on disk. This function works similar to its *SaveImageToGallery* equivalent.
 
 ### B. Retrieving Media From Gallery/Photos
-`NativeGallery.GetImageFromGallery( MediaPickCallback callback, string title = "", string mime = "image/*", int maxSize = -1 )`: prompts the user to select an image from Gallery/Photos.
+
+`NativeGallery.GetImageFromGallery( MediaPickCallback callback, string title = "", string mime = "image/*" )`: prompts the user to select an image from Gallery/Photos.
 - This operation is **asynchronous**! After user selects an image or cancels the operation, the **callback** is called (on main thread). **MediaPickCallback** takes a *string* parameter which stores the path of the selected image, or *null* if nothing is selected
 - **title** determines the title of the image picker dialog on Android. Has no effect on iOS
-- **mime** filters the available images on Android. For example, to request a *JPEG* image from the user, mime can be set as "image/jpeg". Setting multiple mime types is not possible (in that case, you should leave mime as "image/\*"). **On iOS, the selected image will always be in PNG format** and thus, this parameter has no effect on iOS 
-- **maxSize** determines the maximum size of the returned image in pixels on iOS. A larger image will be down-scaled for better performance. If untouched, its value will be set to *SystemInfo.maxTextureSize*. Has no effect on Android
+- **mime** filters the available images on Android. For example, to request a *JPEG* image from the user, mime can be set as "image/jpeg". Setting multiple mime types is not possible (in that case, you should leave mime as "image/\*"). Has no effect on iOS
 
 `NativeGallery.GetVideoFromGallery( MediaPickCallback callback, string title = "", string mime = "video/*" )`: prompts the user to select a video from Gallery/Photos. This function works similar to its *GetImageFromGallery* equivalent.
 
-`NativeGallery.GetImagesFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "image/*", int maxSize = -1 )`: prompts the user to select one or more images from Gallery/Photos. **MediaPickMultipleCallback** takes a *string[]* parameter which stores the path(s) of the selected image(s)/video(s), or *null* if nothing is selected. Selecting multiple files from gallery is only available on *Android 18* and later (iOS not supported). Call *CanSelectMultipleFilesFromGallery()* to see if this feature is available.
+`NativeGallery.GetImagesFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "image/*" )`: prompts the user to select one or more images from Gallery/Photos. **MediaPickMultipleCallback** takes a *string[]* parameter which stores the path(s) of the selected image(s)/video(s), or *null* if nothing is selected. Selecting multiple files from gallery is only available on *Android 18* and later (iOS not supported). Call *CanSelectMultipleFilesFromGallery()* to see if this feature is available.
 
 `NativeGallery.GetVideosFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "video/*" )`: prompts the user to select one or more videos from Gallery/Photos. This function works similar to its *GetImagesFromGallery* equivalent.
 
@@ -72,9 +70,10 @@ Make sure that you've set the **Write Permission** to **External (SDCard)** in *
 
 `NativeGallery.IsMediaPickerBusy()`: returns true if the user is currently picking media from Gallery/Photos. In that case, another GetImageFromGallery or GetVideoFromGallery request will simply be ignored.
 
-Note that all these functions (except IsMediaPickerBusy) return a *NativeGallery.Permission* value. More details available below.
+Almost all of these functions return a *NativeGallery.Permission* value. More details about it is available below.
 
 ### C. Runtime Permissions
+
 Beginning with *6.0 Marshmallow*, Android apps must request runtime permissions before accessing certain services, similar to iOS. There are two functions to handle permissions with this plugin:
 
 `NativeGallery.Permission NativeGallery.CheckPermission()`: checks whether the app has access to Gallery/Photos or not.
@@ -91,6 +90,7 @@ Beginning with *6.0 Marshmallow*, Android apps must request runtime permissions 
 `bool NativeGallery.CanOpenSettings()`: on iOS versions prior to 8.0, opening settings from within app is not possible and in this case, this function returns *false*. Otherwise, it returns *true*.
 
 ### D. Utility Functions
+
 `NativeGallery.ImageProperties NativeGallery.GetImageProperties( string imagePath )`: returns an *ImageProperties* instance that holds the width, height, mime type and EXIF orientation information of an image file without creating a *Texture2D* object. Mime type will be *null*, if it can't be determined
 
 `NativeGallery.VideoProperties NativeGallery.GetVideoProperties( string videoPath )`: returns a *VideoProperties* instance that holds the width, height, duration (in milliseconds) and rotation information of a video file. To play a video in correct orientation, you should rotate it by *rotation* degrees clockwise. For a 90-degree or 270-degree rotated video, values of *width* and *height* should be swapped to get the display size of the video.
@@ -102,6 +102,7 @@ Beginning with *6.0 Marshmallow*, Android apps must request runtime permissions 
 - **linearColorSpace** determines whether texture should be in linear color space or sRGB color space
 
 ## Example Code
+
 The following code has three functions:
 - if you click the left one-third of the screen, it captures the screenshot of the game and saves it to Gallery/Photos
 - if you click the middle one-third of the screen, it picks an image from Gallery/Photos and puts it on a temporary quad that is placed in front of the camera
@@ -148,7 +149,7 @@ private IEnumerator TakeScreenshotAndSave()
 	ss.Apply();
 
 	// Save the screenshot to Gallery/Photos
-	Debug.Log( "Permission result: " + NativeGallery.SaveImageToGallery( ss, "GalleryTest", "My img {0}.png" ) );
+	Debug.Log( "Permission result: " + NativeGallery.SaveImageToGallery( ss, "GalleryTest", "Image.png" ) );
 	
 	// To avoid memory leaks
 	Destroy( ss );
@@ -187,7 +188,7 @@ private void PickImage( int maxSize )
 			// it will only be freed after a scene change
 			Destroy( texture, 5f );
 		}
-	}, "Select a PNG image", "image/png", maxSize );
+	}, "Select a PNG image", "image/png" );
 
 	Debug.Log( "Permission result: " + permission );
 }

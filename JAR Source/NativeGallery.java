@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.Fragment;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -13,7 +14,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.media.ExifInterface;
 import android.media.MediaMetadataRetriever;
-import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -21,9 +21,14 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Log;
+import android.webkit.MimeTypeMap;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Locale;
 
 /**
  * Created by yasirkula on 22.06.2017.
@@ -31,35 +36,147 @@ import java.io.FileOutputStream;
 
 public class NativeGallery
 {
-	public static String GetMediaPath( String directoryName )
+	public static void SaveMedia( Context context, int mediaType, String filePath, String directoryName )
 	{
-		String path = Environment.getExternalStorageDirectory().getAbsolutePath();
-		if( path.charAt( path.length() - 1 ) != File.separatorChar )
-			path = path + File.separator;
+		File originalFile = new File( filePath );
+		if( !originalFile.exists() )
+		{
+			Log.e( "Unity", "Original media file is missing or inaccessible!" );
+			return;
+		}
 
-		if( directoryName.charAt( directoryName.length() - 1 ) == '/' || directoryName.charAt( directoryName.length() - 1 ) == '\\' )
-			directoryName = directoryName.substring( 0, directoryName.length() - 1 );
+		int pathSeparator = filePath.lastIndexOf( '/' );
+		int extensionSeparator = filePath.lastIndexOf( '.' );
+		String filename = pathSeparator >= 0 ? filePath.substring( pathSeparator + 1 ) : filePath;
+		String extension = extensionSeparator >= 0 ? filePath.substring( extensionSeparator + 1 ) : "";
 
-		path += directoryName + File.separatorChar;
+		// Credit: https://stackoverflow.com/a/31691791/2373034
+		String mimeType = extension.length() > 0 ? MimeTypeMap.getSingleton().getMimeTypeFromExtension( extension.toLowerCase( Locale.ENGLISH ) ) : null;
 
-		new File( path ).mkdirs();
-		return path;
-	}
+		ContentValues values = new ContentValues();
+		values.put( MediaStore.MediaColumns.TITLE, filename );
+		values.put( MediaStore.MediaColumns.DISPLAY_NAME, filename );
+		values.put( MediaStore.MediaColumns.DATE_ADDED, System.currentTimeMillis() / 1000 );
 
-	public static void MediaScanFile( Context context, String path )
-	{
-		MediaScannerConnection.scanFile( context, new String[] { path }, null, null );
-	}
+		if( mimeType != null && mimeType.length() > 0 )
+			values.put( MediaStore.MediaColumns.MIME_TYPE, mimeType );
 
-	public static void MediaDeleteFile( Context context, String path, boolean isImage )
-	{
-		if( isImage )
-			context.getContentResolver().delete( MediaStore.Images.Media.EXTERNAL_CONTENT_URI, MediaStore.Images.Media.DATA + "=?", new String[] { path } );
+		Uri externalContentUri;
+		if( mediaType == 0 )
+			externalContentUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+		else if( mediaType == 1 )
+			externalContentUri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
 		else
-			context.getContentResolver().delete( MediaStore.Video.Media.EXTERNAL_CONTENT_URI, MediaStore.Video.Media.DATA + "=?", new String[] { path } );
+			externalContentUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
+
+		// Android 10 restricts our access to the raw filesystem, use MediaStore to save media in that case
+		if( android.os.Build.VERSION.SDK_INT >= 29 )
+		{
+			values.put( MediaStore.MediaColumns.RELATIVE_PATH, "DCIM/" + directoryName );
+			values.put( MediaStore.MediaColumns.DATE_TAKEN, System.currentTimeMillis() );
+			values.put( MediaStore.MediaColumns.IS_PENDING, true );
+
+			Uri uri = context.getContentResolver().insert( externalContentUri, values );
+			if( uri != null )
+			{
+				try
+				{
+					if( WriteFileToStream( originalFile, context.getContentResolver().openOutputStream( uri ) ) )
+					{
+						values.put( MediaStore.MediaColumns.IS_PENDING, false );
+						context.getContentResolver().update( uri, values, null, null );
+					}
+				}
+				catch( Exception e )
+				{
+					Log.e( "Unity", "Exception:", e );
+					context.getContentResolver().delete( uri, null, null );
+				}
+			}
+		}
+		else
+		{
+			File directory = new File( Environment.getExternalStoragePublicDirectory( Environment.DIRECTORY_DCIM ), directoryName );
+			directory.mkdirs();
+
+			File file;
+			int fileIndex = 1;
+			String filenameWithoutExtension = extension.length() > 0 ? filename.substring( 0, filename.length() - extension.length() - 1 ) : filename;
+			String newFilename = filename;
+			do
+			{
+				file = new File( directory, newFilename );
+				newFilename = filenameWithoutExtension + fileIndex++;
+				if( extension.length() > 0 )
+					newFilename += "." + extension;
+			} while( file.exists() );
+
+			try
+			{
+				if( WriteFileToStream( originalFile, new FileOutputStream( file ) ) )
+				{
+					values.put( MediaStore.MediaColumns.DATA, file.getAbsolutePath() );
+					context.getContentResolver().insert( externalContentUri, values );
+
+					Log.d( "Unity", "Saved media to: " + file.getPath() );
+
+					// Refresh the Gallery
+					Intent mediaScanIntent = new Intent( Intent.ACTION_MEDIA_SCANNER_SCAN_FILE );
+					mediaScanIntent.setData( Uri.fromFile( file ) );
+					context.sendBroadcast( mediaScanIntent );
+				}
+			}
+			catch( Exception e )
+			{
+				Log.e( "Unity", "Exception:", e );
+			}
+		}
 	}
 
-	public static void PickMedia( Context context, final NativeGalleryMediaReceiver mediaReceiver, boolean imageMode, boolean selectMultiple, String mime, String title )
+	private static boolean WriteFileToStream( File file, OutputStream out )
+	{
+		try
+		{
+			InputStream in = new FileInputStream( file );
+			try
+			{
+				try
+				{
+					byte[] buf = new byte[1024];
+					int len;
+					while( ( len = in.read( buf ) ) > 0 )
+						out.write( buf, 0, len );
+				}
+				finally
+				{
+					out.close();
+				}
+			}
+			finally
+			{
+				in.close();
+			}
+		}
+		catch( Exception e )
+		{
+			Log.e( "Unity", "Exception:", e );
+			return false;
+		}
+
+		return true;
+	}
+
+	public static void MediaDeleteFile( Context context, String path, int mediaType )
+	{
+		if( mediaType == 0 )
+			context.getContentResolver().delete( MediaStore.Images.Media.EXTERNAL_CONTENT_URI, MediaStore.Images.Media.DATA + "=?", new String[] { path } );
+		else if( mediaType == 1 )
+			context.getContentResolver().delete( MediaStore.Video.Media.EXTERNAL_CONTENT_URI, MediaStore.Video.Media.DATA + "=?", new String[] { path } );
+		else
+			context.getContentResolver().delete( MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, MediaStore.Audio.Media.DATA + "=?", new String[] { path } );
+	}
+
+	public static void PickMedia( Context context, final NativeGalleryMediaReceiver mediaReceiver, int mediaType, boolean selectMultiple, String savePath, String mime, String title )
 	{
 		if( CheckPermission( context, true ) != 1 )
 		{
@@ -72,8 +189,9 @@ public class NativeGallery
 		}
 
 		Bundle bundle = new Bundle();
-		bundle.putBoolean( NativeGalleryMediaPickerFragment.IMAGE_MODE_ID, imageMode );
+		bundle.putInt( NativeGalleryMediaPickerFragment.MEDIA_TYPE_ID, mediaType );
 		bundle.putBoolean( NativeGalleryMediaPickerFragment.SELECT_MULTIPLE_ID, selectMultiple );
+		bundle.putString( NativeGalleryMediaPickerFragment.SAVE_PATH_ID, savePath );
 		bundle.putString( NativeGalleryMediaPickerFragment.MIME_ID, mime );
 		bundle.putString( NativeGalleryMediaPickerFragment.TITLE_ID, title );
 

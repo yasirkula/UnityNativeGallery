@@ -31,19 +31,26 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 {
 	private static final int MEDIA_REQUEST_CODE = 987455;
 
-	public static final String IMAGE_MODE_ID = "NGMP_IMAGE_MODE";
+	public static final String MEDIA_TYPE_ID = "NGMP_MEDIA_TYPE";
 	public static final String SELECT_MULTIPLE_ID = "NGMP_MULTIPLE";
+	public static final String SAVE_PATH_ID = "NGMP_SAVE_PATH";
 	public static final String MIME_ID = "NGMP_MIME";
 	public static final String TITLE_ID = "NGMP_TITLE";
 
+	public static boolean tryPreserveFilenames = false;
+
 	private final NativeGalleryMediaReceiver mediaReceiver;
 	private boolean selectMultiple;
+	private String savePathDirectory, savePathFilename;
 
 	private ArrayList<String> savedFiles;
 
 	private static String secondaryStoragePath = null;
 
-	public NativeGalleryMediaPickerFragment() { mediaReceiver = null; }
+	public NativeGalleryMediaPickerFragment()
+	{
+		mediaReceiver = null;
+	}
 
 	public NativeGalleryMediaPickerFragment( final NativeGalleryMediaReceiver mediaReceiver )
 	{
@@ -58,18 +65,25 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 			getFragmentManager().beginTransaction().remove( this ).commit();
 		else
 		{
-			boolean imageMode = getArguments().getBoolean( IMAGE_MODE_ID );
+			int mediaType = getArguments().getInt( MEDIA_TYPE_ID );
 			String mime = getArguments().getString( MIME_ID );
 			String title = getArguments().getString( TITLE_ID );
 			selectMultiple = getArguments().getBoolean( SELECT_MULTIPLE_ID );
+			String savePath = getArguments().getString( SAVE_PATH_ID );
+
+			int pathSeparator = savePath.lastIndexOf( '/' );
+			savePathFilename = pathSeparator >= 0 ? savePath.substring( pathSeparator + 1 ) : savePath;
+			savePathDirectory = pathSeparator > 0 ? savePath.substring( 0, pathSeparator ) : getActivity().getCacheDir().getAbsolutePath();
 
 			Intent intent;
 			if( !selectMultiple )
 			{
-				if( imageMode )
+				if( mediaType == 0 )
 					intent = new Intent( Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI );
-				else
+				else if( mediaType == 1 )
 					intent = new Intent( Intent.ACTION_PICK, MediaStore.Video.Media.EXTERNAL_CONTENT_URI );
+				else
+					intent = new Intent( Intent.ACTION_PICK, MediaStore.Audio.Media.EXTERNAL_CONTENT_URI );
 			}
 			else
 			{
@@ -119,6 +133,10 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 			return null;
 
 		Log.d( "Unity", "Selected media uri: " + uri.toString() );
+
+		// Android 10 restricts our access to the raw filesystem, copy the file to an accessible temporary location
+		if( android.os.Build.VERSION.SDK_INT >= 29 && !Environment.isExternalStorageLegacy() )
+			return copyToTempFile( uri );
 
 		String selection = null;
 		String[] selectionArgs = null;
@@ -321,7 +339,7 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 			if( input == null )
 				return null;
 
-			String fullName = filename + extension;
+			String fullName = tryPreserveFilenames ? filename : savePathFilename + extension;
 			if( savedFiles != null )
 			{
 				int n = 1;
@@ -336,7 +354,7 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 				}
 			}
 
-			File tempFile = new File( getActivity().getCacheDir(), fullName );
+			File tempFile = new File( savePathDirectory, fullName );
 			OutputStream output = null;
 			try
 			{

@@ -41,6 +41,7 @@ public static class NativeGallery
 	}
 
 	public enum Permission { Denied = 0, Granted = 1, ShouldAsk = 2 };
+	private enum MediaType { Image = 0, Video = 1, Audio = 2 };
 
 	// EXIF orientation: http://sylvana.net/jpegcrop/exif_orientation.html (indices are reordered)
 	public enum ImageOrientation { Unknown = -1, Normal = 0, Rotate90 = 1, Rotate180 = 2, Rotate270 = 3, FlipHorizontal = 4, Transpose = 5, FlipVertical = 6, Transverse = 7 };
@@ -99,10 +100,10 @@ public static class NativeGallery
 	private static extern void _NativeGallery_VideoWriteToAlbum( string path, string album );
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern void _NativeGallery_PickImage( string imageSavePath, int maxSize );
+	private static extern void _NativeGallery_PickImage( string imageSavePath );
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern void _NativeGallery_PickVideo();
+	private static extern void _NativeGallery_PickVideo( string videoSavePath );
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
 	private static extern string _NativeGallery_GetImageProperties( string path );
@@ -122,28 +123,56 @@ public static class NativeGallery
 		{
 			if( m_temporaryImagePath == null )
 			{
-				m_temporaryImagePath = Path.Combine( Application.temporaryCachePath, "__tmpImG" );
+				m_temporaryImagePath = Path.Combine( Application.temporaryCachePath, "tmpImg" );
 				Directory.CreateDirectory( Application.temporaryCachePath );
 			}
 
 			return m_temporaryImagePath;
 		}
 	}
-#endif
 
-#if !UNITY_EDITOR && UNITY_IOS
-	private static string m_iOSSelectedImagePath = null;
-	private static string IOSSelectedImagePath
+	private static string m_selectedImagePath = null;
+	private static string SelectedImagePath
 	{
 		get
 		{
-			if( m_iOSSelectedImagePath == null )
+			if( m_selectedImagePath == null )
 			{
-				m_iOSSelectedImagePath = Path.Combine( Application.temporaryCachePath, "tmp.png" );
+				m_selectedImagePath = Path.Combine( Application.temporaryCachePath, "pickedImg" );
 				Directory.CreateDirectory( Application.temporaryCachePath );
 			}
 
-			return m_iOSSelectedImagePath;
+			return m_selectedImagePath;
+		}
+	}
+
+	private static string m_selectedVideoPath = null;
+	private static string SelectedVideoPath
+	{
+		get
+		{
+			if( m_selectedVideoPath == null )
+			{
+				m_selectedVideoPath = Path.Combine( Application.temporaryCachePath, "pickedVideo" );
+				Directory.CreateDirectory( Application.temporaryCachePath );
+			}
+
+			return m_selectedVideoPath;
+		}
+	}
+
+	private static string m_selectedAudioPath = null;
+	private static string SelectedAudioPath
+	{
+		get
+		{
+			if( m_selectedAudioPath == null )
+			{
+				m_selectedAudioPath = Path.Combine( Application.temporaryCachePath, "pickedAudio" );
+				Directory.CreateDirectory( Application.temporaryCachePath );
+			}
+
+			return m_selectedAudioPath;
 		}
 	}
 #endif
@@ -213,37 +242,47 @@ public static class NativeGallery
 	#endregion
 
 	#region Save Functions
-	public static Permission SaveImageToGallery( byte[] mediaBytes, string album, string filenameFormatted, MediaSaveCallback callback = null )
+	public static Permission SaveImageToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null )
 	{
-		return SaveToGallery( mediaBytes, album, filenameFormatted, true, callback );
+		return SaveToGallery( mediaBytes, album, filename, MediaType.Image, callback );
 	}
 
-	public static Permission SaveImageToGallery( string existingMediaPath, string album, string filenameFormatted, MediaSaveCallback callback = null )
+	public static Permission SaveImageToGallery( string existingMediaPath, string album, string filename, MediaSaveCallback callback = null )
 	{
-		return SaveToGallery( existingMediaPath, album, filenameFormatted, true, callback );
+		return SaveToGallery( existingMediaPath, album, filename, MediaType.Image, callback );
 	}
 
-	public static Permission SaveImageToGallery( Texture2D image, string album, string filenameFormatted, MediaSaveCallback callback = null )
+	public static Permission SaveImageToGallery( Texture2D image, string album, string filename, MediaSaveCallback callback = null )
 	{
 		if( image == null )
 			throw new ArgumentException( "Parameter 'image' is null!" );
 
-		if( filenameFormatted.EndsWith( ".jpeg" ) || filenameFormatted.EndsWith( ".jpg" ) )
-			return SaveToGallery( GetTextureBytes( image, true ), album, filenameFormatted, true, callback );
-		else if( filenameFormatted.EndsWith( ".png" ) )
-			return SaveToGallery( GetTextureBytes( image, false ), album, filenameFormatted, true, callback );
+		if( filename.EndsWith( ".jpeg" ) || filename.EndsWith( ".jpg" ) )
+			return SaveToGallery( GetTextureBytes( image, true ), album, filename, MediaType.Image, callback );
+		else if( filename.EndsWith( ".png" ) )
+			return SaveToGallery( GetTextureBytes( image, false ), album, filename, MediaType.Image, callback );
 		else
-			return SaveToGallery( GetTextureBytes( image, false ), album, filenameFormatted + ".png", true, callback );
+			return SaveToGallery( GetTextureBytes( image, false ), album, filename + ".png", MediaType.Image, callback );
 	}
 
-	public static Permission SaveVideoToGallery( byte[] mediaBytes, string album, string filenameFormatted, MediaSaveCallback callback = null )
+	public static Permission SaveVideoToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null )
 	{
-		return SaveToGallery( mediaBytes, album, filenameFormatted, false, callback );
+		return SaveToGallery( mediaBytes, album, filename, MediaType.Video, callback );
 	}
 
-	public static Permission SaveVideoToGallery( string existingMediaPath, string album, string filenameFormatted, MediaSaveCallback callback = null )
+	public static Permission SaveVideoToGallery( string existingMediaPath, string album, string filename, MediaSaveCallback callback = null )
 	{
-		return SaveToGallery( existingMediaPath, album, filenameFormatted, false, callback );
+		return SaveToGallery( existingMediaPath, album, filename, MediaType.Video, callback );
+	}
+
+	private static Permission SaveAudioToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null )
+	{
+		return SaveToGallery( mediaBytes, album, filename, MediaType.Audio, callback );
+	}
+
+	private static Permission SaveAudioToGallery( string existingMediaPath, string album, string filename, MediaSaveCallback callback = null )
+	{
+		return SaveToGallery( existingMediaPath, album, filename, MediaType.Audio, callback );
 	}
 	#endregion
 
@@ -257,24 +296,34 @@ public static class NativeGallery
 #endif
 	}
 
-	public static Permission GetImageFromGallery( MediaPickCallback callback, string title = "", string mime = "image/*", int maxSize = -1 )
+	public static Permission GetImageFromGallery( MediaPickCallback callback, string title = "", string mime = "image/*" )
 	{
-		return GetMediaFromGallery( callback, true, mime, title, maxSize );
+		return GetMediaFromGallery( callback, MediaType.Image, mime, title );
 	}
 
 	public static Permission GetVideoFromGallery( MediaPickCallback callback, string title = "", string mime = "video/*" )
 	{
-		return GetMediaFromGallery( callback, false, mime, title, -1 );
+		return GetMediaFromGallery( callback, MediaType.Video, mime, title );
 	}
 
-	public static Permission GetImagesFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "image/*", int maxSize = -1 )
+	private static Permission GetAudioFromGallery( MediaPickCallback callback, string title = "", string mime = "audio/*" )
 	{
-		return GetMultipleMediaFromGallery( callback, true, mime, title, maxSize );
+		return GetMediaFromGallery( callback, MediaType.Audio, mime, title );
+	}
+
+	public static Permission GetImagesFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "image/*" )
+	{
+		return GetMultipleMediaFromGallery( callback, MediaType.Image, mime, title );
 	}
 
 	public static Permission GetVideosFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "video/*" )
 	{
-		return GetMultipleMediaFromGallery( callback, false, mime, title, -1 );
+		return GetMultipleMediaFromGallery( callback, MediaType.Video, mime, title );
+	}
+
+	private static Permission GetAudiosFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "audio/*" )
+	{
+		return GetMultipleMediaFromGallery( callback, MediaType.Audio, mime, title );
 	}
 
 	public static bool IsMediaPickerBusy()
@@ -288,7 +337,7 @@ public static class NativeGallery
 	#endregion
 
 	#region Internal Functions
-	private static Permission SaveToGallery( byte[] mediaBytes, string album, string filenameFormatted, bool isImage, MediaSaveCallback callback )
+	private static Permission SaveToGallery( byte[] mediaBytes, string album, string filename, MediaType mediaType, MediaSaveCallback callback )
 	{
 		Permission result = RequestPermission( false );
 		if( result == Permission.Granted )
@@ -299,20 +348,23 @@ public static class NativeGallery
 			if( album == null || album.Length == 0 )
 				throw new ArgumentException( "Parameter 'album' is null or empty!" );
 
-			if( filenameFormatted == null || filenameFormatted.Length == 0 )
-				throw new ArgumentException( "Parameter 'filenameFormatted' is null or empty!" );
+			if( filename == null || filename.Length == 0 )
+				throw new ArgumentException( "Parameter 'filename' is null or empty!" );
 
-			string path = GetSavePath( album, filenameFormatted );
-
+			string path = GetTemporarySavePath( filename );
+#if UNITY_EDITOR
+			Debug.Log( "SaveToGallery called successfully in the Editor" );
+#else
 			File.WriteAllBytes( path, mediaBytes );
+#endif
 
-			SaveToGalleryInternal( path, album, isImage, callback );
+			SaveToGalleryInternal( path, album, mediaType, callback );
 		}
 
 		return result;
 	}
 
-	private static Permission SaveToGallery( string existingMediaPath, string album, string filenameFormatted, bool isImage, MediaSaveCallback callback )
+	private static Permission SaveToGallery( string existingMediaPath, string album, string filename, MediaType mediaType, MediaSaveCallback callback )
 	{
 		Permission result = RequestPermission( false );
 		if( result == Permission.Granted )
@@ -323,98 +375,105 @@ public static class NativeGallery
 			if( album == null || album.Length == 0 )
 				throw new ArgumentException( "Parameter 'album' is null or empty!" );
 
-			if( filenameFormatted == null || filenameFormatted.Length == 0 )
-				throw new ArgumentException( "Parameter 'filenameFormatted' is null or empty!" );
+			if( filename == null || filename.Length == 0 )
+				throw new ArgumentException( "Parameter 'filename' is null or empty!" );
 
-			string path = GetSavePath( album, filenameFormatted );
-
+			string path = GetTemporarySavePath( filename );
+#if UNITY_EDITOR
+			Debug.Log( "SaveToGallery called successfully in the Editor" );
+#else
 			File.Copy( existingMediaPath, path, true );
+#endif
 
-			SaveToGalleryInternal( path, album, isImage, callback );
+			SaveToGalleryInternal( path, album, mediaType, callback );
 		}
 
 		return result;
 	}
 
-	private static void SaveToGalleryInternal( string path, string album, bool isImage, MediaSaveCallback callback )
+	private static void SaveToGalleryInternal( string path, string album, MediaType mediaType, MediaSaveCallback callback )
 	{
 #if !UNITY_EDITOR && UNITY_ANDROID
-		AJC.CallStatic( "MediaScanFile", Context, path );
+		AJC.CallStatic( "SaveMedia", Context, (int) mediaType, path, album );
+
+		File.Delete( path );
 
 		if( callback != null )
 			callback( null );
-
-		Debug.Log( "Saving to gallery: " + path );
 #elif !UNITY_EDITOR && UNITY_IOS
-		NGMediaSaveCallbackiOS.Initialize( callback );
-		if( isImage )
-			_NativeGallery_ImageWriteToAlbum( path, album );
-		else
-			_NativeGallery_VideoWriteToAlbum( path, album );
+		if( mediaType == MediaType.Audio )
+		{
+			if( callback != null )
+				callback( "Saving audio files is not supported on iOS" );
+
+			return;
+		}
 
 		Debug.Log( "Saving to Pictures: " + Path.GetFileName( path ) );
+
+		NGMediaSaveCallbackiOS.Initialize( callback );
+		if( mediaType == MediaType.Image )
+			_NativeGallery_ImageWriteToAlbum( path, album );
+		else if( mediaType == MediaType.Video )
+			_NativeGallery_VideoWriteToAlbum( path, album );
 #else
 		if( callback != null )
 			callback( null );
 #endif
 	}
 
-	private static string GetSavePath( string album, string filenameFormatted )
+	private static string GetTemporarySavePath( string filename )
 	{
-		string saveDir;
-#if !UNITY_EDITOR && UNITY_ANDROID
-		saveDir = AJC.CallStatic<string>( "GetMediaPath", album );
-#else
-		saveDir = Application.persistentDataPath;
-#endif
-
-		if( filenameFormatted.Contains( "{0}" ) )
-		{
-			int fileIndex = 0;
-			string path;
-			do
-			{
-				path = Path.Combine( saveDir, string.Format( filenameFormatted, ++fileIndex ) );
-			} while( File.Exists( path ) );
-
-			return path;
-		}
-
-		saveDir = Path.Combine( saveDir, filenameFormatted );
+		string saveDir = Application.persistentDataPath;
 
 #if !UNITY_EDITOR && UNITY_IOS
+		// Ensure a unique temporary filename on iOS:
 		// iOS internally copies images/videos to Photos directory of the system,
 		// but the process is async. The redundant file is deleted by objective-c code
 		// automatically after the media is saved but while it is being saved, the file
 		// should NOT be overwritten. Therefore, always ensure a unique filename on iOS
-		if( File.Exists( saveDir ) )
+		string path = Path.Combine( saveDir, filename );
+		if( File.Exists( path ) )
 		{
-			return GetSavePath( album,
-				Path.GetFileNameWithoutExtension( filenameFormatted ) + " {0}" + Path.GetExtension( filenameFormatted ) );
-		}
-#endif
+			int fileIndex = 0;
+			string filenameWithoutExtension = Path.GetFileNameWithoutExtension( filename );
+			string extension = Path.GetExtension( filename );
 
-		return saveDir;
+			do
+			{
+				path = Path.Combine( saveDir, string.Concat( filenameWithoutExtension, ++fileIndex, extension ) );
+			} while( File.Exists( path ) );
+		}
+
+		return path;
+#else
+		return Path.Combine( saveDir, filename );
+#endif
 	}
 
-	private static Permission GetMediaFromGallery( MediaPickCallback callback, bool imageMode, string mime, string title, int maxSize )
+	private static Permission GetMediaFromGallery( MediaPickCallback callback, MediaType mediaType, string mime, string title )
 	{
 		Permission result = RequestPermission( true );
 		if( result == Permission.Granted && !IsMediaPickerBusy() )
 		{
 #if !UNITY_EDITOR && UNITY_ANDROID
-			AJC.CallStatic( "PickMedia", Context, new NGMediaReceiveCallbackAndroid( callback, null ), imageMode, false, mime, title );
+			string savePath;
+			if( mediaType == MediaType.Image )
+				savePath = SelectedImagePath;
+			else if( mediaType == MediaType.Video )
+				savePath = SelectedVideoPath;
+			else
+				savePath = SelectedAudioPath;
+
+			AJC.CallStatic( "PickMedia", Context, new NGMediaReceiveCallbackAndroid( callback, null ), (int) mediaType, false, savePath, mime, title );
 #elif !UNITY_EDITOR && UNITY_IOS
 			NGMediaReceiveCallbackiOS.Initialize( callback );
-			if( imageMode )
-			{
-				if( maxSize <= 0 )
-					maxSize = SystemInfo.maxTextureSize;
-
-				_NativeGallery_PickImage( IOSSelectedImagePath, maxSize );
-			}
-			else
-				_NativeGallery_PickVideo();
+			if( mediaType == MediaType.Image )
+				_NativeGallery_PickImage( SelectedImagePath );
+			else if( mediaType == MediaType.Video )
+				_NativeGallery_PickVideo( SelectedVideoPath );
+			else if( callback != null ) // Selecting audio files is not supported on iOS
+				callback( null );
 #else
 			if( callback != null )
 				callback( null );
@@ -424,7 +483,7 @@ public static class NativeGallery
 		return result;
 	}
 
-	private static Permission GetMultipleMediaFromGallery( MediaPickMultipleCallback callback, bool imageMode, string mime, string title, int maxSize )
+	private static Permission GetMultipleMediaFromGallery( MediaPickMultipleCallback callback, MediaType mediaType, string mime, string title )
 	{
 		Permission result = RequestPermission( true );
 		if( result == Permission.Granted && !IsMediaPickerBusy() )
@@ -432,7 +491,15 @@ public static class NativeGallery
 			if( CanSelectMultipleFilesFromGallery() )
 			{
 #if !UNITY_EDITOR && UNITY_ANDROID
-				AJC.CallStatic( "PickMedia", Context, new NGMediaReceiveCallbackAndroid( null, callback ), imageMode, true, mime, title );
+				string savePath;
+				if( mediaType == MediaType.Image )
+					savePath = SelectedImagePath;
+				else if( mediaType == MediaType.Video )
+					savePath = SelectedVideoPath;
+				else
+					savePath = SelectedAudioPath;
+
+				AJC.CallStatic( "PickMedia", Context, new NGMediaReceiveCallbackAndroid( null, callback ), (int) mediaType, true, savePath, mime, title );
 #else
 				if( callback != null )
 					callback( null );
@@ -613,11 +680,6 @@ public static class NativeGallery
 				int orientationInt;
 				if( int.TryParse( properties[3].Trim(), out orientationInt ) )
 					orientation = (ImageOrientation) orientationInt;
-
-#if !UNITY_EDITOR && UNITY_IOS
-				if( orientation == ImageOrientation.Unknown ) // selected media is saved in correct orientation on iOS
-					orientation = ImageOrientation.Normal;
-#endif
 			}
 		}
 

@@ -42,13 +42,13 @@ namespace NativeGalleryNamespace
 
 					if( _NativeGallery_IsMediaPickerBusy() == 0 )
 					{
+						IsBusy = false;
+						
 						if( callback != null )
 						{
 							callback( null );
 							callback = null;
 						}
-
-						IsBusy = false;
 					}
 				}
 			}
@@ -56,16 +56,16 @@ namespace NativeGalleryNamespace
 
 		public void OnMediaReceived( string path )
 		{
+			IsBusy = false;
+			
 			if( string.IsNullOrEmpty( path ) )
 				path = null;
-
+			
 			if( callback != null )
 			{
 				callback( path );
 				callback = null;
 			}
-			
-			IsBusy = false;
 		}
 	}
 }
