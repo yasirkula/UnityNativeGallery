@@ -471,17 +471,25 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 }
 
 + (char *)loadImageAtPath:(NSString *)path tempFilePath:(NSString *)tempFilePath maximumSize:(int)maximumSize {
-	NSArray *metadata = [self getImageMetadata:path];
-	int orientationInt = [metadata[2] intValue];  // 1: correct orientation, [1,8]: valid orientation range
-	if (( orientationInt <= 1 || orientationInt > 8 ) && [metadata[0] intValue] <= maximumSize && [metadata[1] intValue] <= maximumSize)
-		return [self getCString:path];
+	// Check if the image can be loaded by Unity without requiring a conversion to PNG
+	// Credit: https://stackoverflow.com/a/12048937/2373034
+	NSString *extension = [path pathExtension];
+	BOOL conversionNeeded = [extension caseInsensitiveCompare:@"jpg"] != NSOrderedSame && [extension caseInsensitiveCompare:@"jpeg"] != NSOrderedSame && [extension caseInsensitiveCompare:@"png"] != NSOrderedSame;
+
+	if (!conversionNeeded) {
+		// Check if the image needs to be processed at all
+		NSArray *metadata = [self getImageMetadata:path];
+		int orientationInt = [metadata[2] intValue];  // 1: correct orientation, [1,8]: valid orientation range
+		if (( orientationInt <= 1 || orientationInt > 8 ) && [metadata[0] intValue] <= maximumSize && [metadata[1] intValue] <= maximumSize)
+			return [self getCString:path];
+	}
 	
 	UIImage *image = [UIImage imageWithContentsOfFile:path];
 	if (image == nil)
 		return [self getCString:path];
 	
 	UIImage *scaledImage = [self scaleImage:image maxSize:maximumSize];
-	if (scaledImage != image) {
+	if (conversionNeeded || scaledImage != image) {
 		if (![UIImagePNGRepresentation(scaledImage) writeToFile:tempFilePath atomically:YES]) {
 			NSLog(@"Error creating scaled image");
 			return [self getCString:path];

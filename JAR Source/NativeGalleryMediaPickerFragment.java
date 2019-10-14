@@ -37,6 +37,7 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 	public static final String MIME_ID = "NGMP_MIME";
 	public static final String TITLE_ID = "NGMP_TITLE";
 
+	public static boolean preferGetContent = false;
 	public static boolean tryPreserveFilenames = false;
 
 	private final NativeGalleryMediaReceiver mediaReceiver;
@@ -76,7 +77,7 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 			savePathDirectory = pathSeparator > 0 ? savePath.substring( 0, pathSeparator ) : getActivity().getCacheDir().getAbsolutePath();
 
 			Intent intent;
-			if( !selectMultiple )
+			if( !preferGetContent && !selectMultiple )
 			{
 				if( mediaType == 0 )
 					intent = new Intent( Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI );
@@ -90,7 +91,8 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 				intent = new Intent( Intent.ACTION_GET_CONTENT );
 				intent.addCategory( Intent.CATEGORY_OPENABLE );
 
-				allowMultipleMedia( intent );
+				if( selectMultiple )
+					allowMultipleMedia( intent );
 			}
 
 			intent.setType( mime );

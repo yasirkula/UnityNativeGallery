@@ -140,27 +140,38 @@ public class NativeGallery
 			InputStream in = new FileInputStream( file );
 			try
 			{
-				try
-				{
-					byte[] buf = new byte[1024];
-					int len;
-					while( ( len = in.read( buf ) ) > 0 )
-						out.write( buf, 0, len );
-				}
-				finally
-				{
-					out.close();
-				}
+				byte[] buf = new byte[1024];
+				int len;
+				while( ( len = in.read( buf ) ) > 0 )
+					out.write( buf, 0, len );
 			}
 			finally
 			{
-				in.close();
+				try
+				{
+					in.close();
+				}
+				catch( Exception e )
+				{
+					Log.e( "Unity", "Exception:", e );
+				}
 			}
 		}
 		catch( Exception e )
 		{
 			Log.e( "Unity", "Exception:", e );
 			return false;
+		}
+		finally
+		{
+			try
+			{
+				out.close();
+			}
+			catch( Exception e )
+			{
+				Log.e( "Unity", "Exception:", e );
+			}
 		}
 
 		return true;
