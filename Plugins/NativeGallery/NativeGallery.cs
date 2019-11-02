@@ -351,6 +351,9 @@ public static class NativeGallery
 			if( filename == null || filename.Length == 0 )
 				throw new ArgumentException( "Parameter 'filename' is null or empty!" );
 
+			if( string.IsNullOrEmpty( Path.GetExtension( filename ) ) )
+				Debug.LogWarning( "'filename' doesn't have an extension, this might result in unexpected behaviour!" );
+
 			string path = GetTemporarySavePath( filename );
 #if UNITY_EDITOR
 			Debug.Log( "SaveToGallery called successfully in the Editor" );
@@ -377,6 +380,15 @@ public static class NativeGallery
 
 			if( filename == null || filename.Length == 0 )
 				throw new ArgumentException( "Parameter 'filename' is null or empty!" );
+
+			if( string.IsNullOrEmpty( Path.GetExtension( filename ) ) )
+			{
+				string originalExtension = Path.GetExtension( existingMediaPath );
+				if( string.IsNullOrEmpty( originalExtension ) )
+					Debug.LogWarning( "'filename' doesn't have an extension, this might result in unexpected behaviour!" );
+				else
+					filename += originalExtension;
+			}
 
 			string path = GetTemporarySavePath( filename );
 #if UNITY_EDITOR
@@ -424,7 +436,8 @@ public static class NativeGallery
 
 	private static string GetTemporarySavePath( string filename )
 	{
-		string saveDir = Application.persistentDataPath;
+		string saveDir = Path.Combine( Application.persistentDataPath, "NGallery" );
+		Directory.CreateDirectory( saveDir );
 
 #if !UNITY_EDITOR && UNITY_IOS
 		// Ensure a unique temporary filename on iOS:

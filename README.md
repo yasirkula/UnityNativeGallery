@@ -35,15 +35,19 @@ If your project uses ProGuard, try adding the following line to ProGuard filters
 
 Make sure that you've set the **Write Permission** to **External (SDCard)** in *Player Settings*.
 
+- **Saving image/video doesn't work properly**
+
+Make sure that the *filename* parameter of the Save function includes the file's extension, as well
+
 ## How To
 
 ### A. Saving Media To Gallery/Photos
 
 `NativeGallery.SaveImageToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null )`: use this function if you have the raw bytes of the image. 
-- On Android, your images are saved at **DCIM/album/filename**. On iOS, the image will be saved in the corresponding album
+- On Android, your images are saved at **DCIM/album/filename**. On iOS, the image will be saved in the corresponding album. Make sure that the *filename* parameter includes the file's extension, as well
 - **MediaSaveCallback** takes a string parameter which stores an error string if something goes wrong while saving the image/video, or *null* if it is saved successfully. This parameter is optional
 
-**IMPORTANT:** NativeGallery will never overwrite existing media on the Gallery. If there is a name conflict, NativeGallery will ensure a unique filename. So don't put `{0}` in filename anymore (for new users, putting {0} in filename was recommended in order to ensure unique filenames in earlier versions, this is no longer necessary).
+**IMPORTANT:** NativeGallery will never overwrite existing media on the Gallery. If there is a name conflict, NativeGallery will ensure a unique filename. So don't put `{0}` in *filename* anymore (for new users, putting {0} in filename was recommended in order to ensure unique filenames in earlier versions, this is no longer necessary).
 
 `NativeGallery.SaveImageToGallery( string existingMediaPath, string album, string filename, MediaSaveCallback callback = null )`: use this function if the image is already saved on disk. Enter the file's path to **existingMediaPath**.
 

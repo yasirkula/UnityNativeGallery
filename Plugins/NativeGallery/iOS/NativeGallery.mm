@@ -480,7 +480,7 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 		// Check if the image needs to be processed at all
 		NSArray *metadata = [self getImageMetadata:path];
 		int orientationInt = [metadata[2] intValue];  // 1: correct orientation, [1,8]: valid orientation range
-		if (( orientationInt <= 1 || orientationInt > 8 ) && [metadata[0] intValue] <= maximumSize && [metadata[1] intValue] <= maximumSize)
+		if (orientationInt == 1 && [metadata[0] intValue] <= maximumSize && [metadata[1] intValue] <= maximumSize)
 			return [self getCString:path];
 	}
 	

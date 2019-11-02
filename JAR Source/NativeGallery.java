@@ -61,6 +61,31 @@ public class NativeGallery
 		if( mimeType != null && mimeType.length() > 0 )
 			values.put( MediaStore.MediaColumns.MIME_TYPE, mimeType );
 
+		if( mediaType == 0 )
+		{
+			int imageOrientation = GetImageOrientation( context, filePath );
+			switch( imageOrientation )
+			{
+				case ExifInterface.ORIENTATION_ROTATE_270:
+				case ExifInterface.ORIENTATION_TRANSVERSE:
+				{
+					values.put( MediaStore.Images.Media.ORIENTATION, 270 );
+					break;
+				}
+				case ExifInterface.ORIENTATION_ROTATE_180:
+				{
+					values.put( MediaStore.Images.Media.ORIENTATION, 180 );
+					break;
+				}
+				case ExifInterface.ORIENTATION_ROTATE_90:
+				case ExifInterface.ORIENTATION_TRANSPOSE:
+				{
+					values.put( MediaStore.Images.Media.ORIENTATION, 90 );
+					break;
+				}
+			}
+		}
+
 		Uri externalContentUri;
 		if( mediaType == 0 )
 			externalContentUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
@@ -101,7 +126,7 @@ public class NativeGallery
 
 			File file;
 			int fileIndex = 1;
-			String filenameWithoutExtension = extension.length() > 0 ? filename.substring( 0, filename.length() - extension.length() - 1 ) : filename;
+			String filenameWithoutExtension = ( extension.length() > 0 && filename.length() > extension.length() ) ? filename.substring( 0, filename.length() - extension.length() - 1 ) : filename;
 			String newFilename = filename;
 			do
 			{
