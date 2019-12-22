@@ -618,7 +618,10 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 
 + (void)trySaveSourceImage:(NSData *)imageData withInfo:(NSDictionary *)info {
 	NSString *filePath = info[@"PHImageFileURLKey"];
-	if (filePath == nil )
+	if (filePath == nil || [filePath length] == 0)
+		filePath = info[@"PHImageFileUTIKey"];
+		
+	if (filePath == nil || [filePath length] == 0)
 		resultPath = pickedMediaSavePath;
 	else
 		resultPath = [pickedMediaSavePath stringByAppendingPathExtension:[filePath pathExtension]];
