@@ -404,7 +404,7 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 		if( !selectMultiple )
 		{
 			String result;
-			if( resultCode != Activity.RESULT_OK )
+			if( resultCode != Activity.RESULT_OK || data == null )
 				result = "";
 			else
 			{
@@ -422,7 +422,7 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 		else
 		{
 			ArrayList<String> result = new ArrayList<String>();
-			if( resultCode == Activity.RESULT_OK )
+			if( resultCode == Activity.RESULT_OK && data != null )
 				fetchPathsOfMultipleMedia( result, data );
 
 			for( int i = result.size() - 1; i >= 0; i-- )
