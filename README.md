@@ -27,6 +27,10 @@ There are two ways to set up the plugin on iOS:
 
 ## FAQ
 
+- **How can I fetch the path of the saved image or the original path of the picked image?**
+
+You can't. On iOS, these files are stored in an internal directory that we have no access to (I don't think there is even a way to fetch that internal path). On Android, with Storage Access Framework, the absolute path is hidden behind the SAF-layer. There are some tricks here and there to convert SAF-path to absolute path but they don't work in all cases (most of the snippets that can be found on Stackoverflow can't return the absolute path if the file is stored on external SD card).
+
 - **Can't access the Gallery, it says "java.lang.ClassNotFoundException: com.yasirkula.unity.NativeGallery" in Logcat**
 
 If your project uses ProGuard, try adding the following line to ProGuard filters: `-keep class com.yasirkula.unity.* { *; }`
