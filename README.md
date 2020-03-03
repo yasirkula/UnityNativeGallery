@@ -1,6 +1,6 @@
 # Unity Native Gallery Plugin
 
-**Available on Asset Store:** https://www.assetstore.unity3d.com/en/#!/content/112630
+**Available on Asset Store:** https://assetstore.unity.com/packages/tools/integration/native-gallery-for-android-ios-112630
 
 **Forum Thread:** https://forum.unity.com/threads/native-gallery-for-android-ios-open-source.519619/
 
