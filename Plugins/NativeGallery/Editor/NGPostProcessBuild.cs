@@ -34,11 +34,15 @@ public class NGPostProcessBuild
 			string targetGUID = pbxProject.TargetGuidByName( PBXProject.GetUnityTargetName() );
 #endif
 
+			// Minimum supported iOS version on Unity 2018.1 and later is 8.0
+#if !UNITY_2018_1_OR_NEWER
 			if( MINIMUM_TARGET_8_OR_ABOVE )
 			{
+#endif
 				pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework Photos" );
 				pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework MobileCoreServices" );
 				pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework ImageIO" );
+#if !UNITY_2018_1_OR_NEWER
 			}
 			else
 			{
@@ -47,6 +51,7 @@ public class NGPostProcessBuild
 				pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework MobileCoreServices" );
 				pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework ImageIO" );
 			}
+#endif
 
 			pbxProject.RemoveFrameworkFromProject( targetGUID, "Photos.framework" );
 

@@ -19,7 +19,7 @@ There are two ways to set up the plugin on iOS:
 **a. Automated Setup for iOS**
 
 - (optional) change the value of **PHOTO_LIBRARY_USAGE_DESCRIPTION** in *Plugins/NativeGallery/Editor/NGPostProcessBuild.cs*
-- if your minimum *Deployment Target* (iOS Version) is at least 8.0, set the value of **MINIMUM_TARGET_8_OR_ABOVE** to *true* in *NGPostProcessBuild.cs*
+- (Unity 2017.4 or earlier) if your minimum *Deployment Target* (iOS Version) is at least 8.0, set the value of **MINIMUM_TARGET_8_OR_ABOVE** to *true* in *NGPostProcessBuild.cs*
 
 **b. Manual Setup for iOS**
 

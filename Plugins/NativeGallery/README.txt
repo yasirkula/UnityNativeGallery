@@ -3,16 +3,18 @@
 Online documentation & example code available at: https://github.com/yasirkula/UnityNativeGallery
 E-mail: yasirkula@gmail.com
 
+
 1. ABOUT
 This plugin helps you interact with Gallery/Photos on Android & iOS.
+
 
 2. HOW TO
 for Android: set "Write Permission" to "External (SDCard)" in Player Settings
 for iOS: there are two ways to set up the plugin on iOS:
 
 a. Automated Setup for iOS
-- change the value of PHOTO_LIBRARY_USAGE_DESCRIPTION in Plugins/NativeGallery/Editor/NGPostProcessBuild.cs (optional)
-- if your minimum Deployment Target (iOS Version) is at least 8.0, set the value of MINIMUM_TARGET_8_OR_ABOVE to true in NGPostProcessBuild.cs
+- (optional) change the value of PHOTO_LIBRARY_USAGE_DESCRIPTION in Plugins/NativeGallery/Editor/NGPostProcessBuild.cs
+- (Unity 2017.4 or earlier) if your minimum Deployment Target (iOS Version) is at least 8.0, set the value of MINIMUM_TARGET_8_OR_ABOVE to true in NGPostProcessBuild.cs
 
 b. Manual Setup for iOS
 - set the value of ENABLED to false in NGPostProcessBuild.cs
@@ -22,7 +24,11 @@ b. Manual Setup for iOS
 - insert "-weak_framework Photos -framework AssetsLibrary -framework MobileCoreServices -framework ImageIO" to the "Other Linker Flags" of Unity-iPhone Target (if your Deployment Target is at least 8.0, it is sufficient to insert "-framework Photos -framework MobileCoreServices -framework ImageIO")
 - lastly, remove Photos.framework from Link Binary With Libraries of Unity-iPhone Target in Build Phases, if exists
 
+
 3. FAQ
+- How can I fetch the path of the saved image or the original path of the picked image?
+You can't. On iOS, these files are stored in an internal directory that we have no access to (I don't think there is even a way to fetch that internal path). On Android, with Storage Access Framework, the absolute path is hidden behind the SAF-layer. There are some tricks here and there to convert SAF-path to absolute path but they don't work in all cases (most of the snippets that can be found on Stackoverflow can't return the absolute path if the file is stored on external SD card).
+
 - Can't access the Gallery, it says "java.lang.ClassNotFoundException: com.yasirkula.unity.NativeGallery" in Logcat
 If your project uses ProGuard, try adding the following line to ProGuard filters: -keep class com.yasirkula.unity.* { *; }
 
@@ -31,6 +37,7 @@ Make sure that you've set the "Write Permission" to "External (SDCard)" in Playe
 
 - Saving image/video doesn't work properly
 Make sure that the "filename" parameter of the Save function includes the file's extension, as well
+
 
 4. SCRIPTING API
 Please see the online documentation for a more in-depth documentation of the Scripting API: https://github.com/yasirkula/UnityNativeGallery

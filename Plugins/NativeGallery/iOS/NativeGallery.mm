@@ -568,7 +568,6 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 		else {
 			resultPath = [mediaUrl path];
 			
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
 			// On iOS 13, picked file becomes unreachable as soon as the UIImagePickerController disappears,
 			// in that case, copy the video to a temporary location
 			if ([[[UIDevice currentDevice] systemVersion] compare:@"13.0" options:NSNumericSearch] != NSOrderedAscending) {
@@ -588,7 +587,6 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 					resultPath = nil;
 				}
 			}
-#endif
 		}
 	}
 	
