@@ -38,7 +38,7 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 	public static final String TITLE_ID = "NGMP_TITLE";
 
 	public static boolean preferGetContent = false;
-	public static boolean tryPreserveFilenames = false;
+	public static boolean tryPreserveFilenames = false; // When enabled, app's cache will fill more quickly since most of the images will have a unique filename (less chance of overwriting old files)
 
 	private final NativeGalleryMediaReceiver mediaReceiver;
 	private boolean selectMultiple;
@@ -325,14 +325,27 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 		if( filename == null || filename.length() < 3 )
 			filename = "temp";
 
-		String extension;
+		String extension = null;
 		String mime = resolver.getType( uri );
 		if( mime != null )
-			extension = "." + MimeTypeMap.getSingleton().getExtensionFromMimeType( mime );
-		else
-			extension = ".tmp";
+		{
+			String mimeExtension = MimeTypeMap.getSingleton().getExtensionFromMimeType( mime );
+			if( mimeExtension != null && mimeExtension.length() > 0 )
+				extension = "." + mimeExtension;
+		}
 
-		if( filename.endsWith( extension ) )
+		if( extension == null )
+		{
+			int filenameExtensionIndex = filename.lastIndexOf( '.' );
+			if( filenameExtensionIndex > 0 && filenameExtensionIndex < filename.length() - 1 )
+				extension = filename.substring( filenameExtensionIndex );
+			else
+				extension = ".tmp";
+		}
+
+		if( !tryPreserveFilenames )
+			filename = savePathFilename;
+		else if( filename.endsWith( extension ) )
 			filename = filename.substring( 0, filename.length() - extension.length() );
 
 		try
@@ -341,7 +354,7 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 			if( input == null )
 				return null;
 
-			String fullName = tryPreserveFilenames ? filename : savePathFilename + extension;
+			String fullName = filename + extension;
 			if( savedFiles != null )
 			{
 				int n = 1;
