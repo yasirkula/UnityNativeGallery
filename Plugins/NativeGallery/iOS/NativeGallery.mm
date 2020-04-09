@@ -504,46 +504,73 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 + (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary *)info {
+	resultPath = nil;
+	
 	if ([info[UIImagePickerControllerMediaType] isEqualToString:(NSString *)kUTTypeImage]) { // image picked
 		// On iOS 8.0 or later, try to obtain the raw data of the image (which allows picking gifs properly or preserving metadata)
 		if ([[[UIDevice currentDevice] systemVersion] compare:@"8.0" options:NSNumericSearch] != NSOrderedAscending) {
 			PHAsset *asset = nil;
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-			if ([[[UIDevice currentDevice] systemVersion] compare:@"11.0" options:NSNumericSearch] != NSOrderedAscending)
-				asset = info[UIImagePickerControllerPHAsset];
-#endif
-			
-			if (asset == nil) {
-				NSURL *mediaUrl = info[UIImagePickerControllerReferenceURL] ?: info[UIImagePickerControllerMediaURL];
-				if (mediaUrl != nil)
-					asset = [[PHAsset fetchAssetsWithALAssetURLs:[NSArray arrayWithObject:mediaUrl] options:nil] firstObject];
-			}
-			
-			if (asset != nil) {
-				PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
-				options.synchronous = YES;
-				options.version = PHImageRequestOptionsVersionCurrent;
+			if ([[[UIDevice currentDevice] systemVersion] compare:@"11.0" options:NSNumericSearch] != NSOrderedAscending) {
+				// Try fetching the source image via UIImagePickerControllerImageURL
+				NSURL *mediaUrl = info[UIImagePickerControllerImageURL];
+				if (mediaUrl != nil) {
+					NSString *imagePath = [mediaUrl path];
+					if (imagePath != nil && [[NSFileManager defaultManager] fileExistsAtPath:imagePath]) {
+						NSError *error;
+						NSString *newPath = [pickedMediaSavePath stringByAppendingPathExtension:[imagePath pathExtension]];
+						
+						if (![[NSFileManager defaultManager] fileExistsAtPath:newPath] || [[NSFileManager defaultManager] removeItemAtPath:newPath error:&error]) {
+							if ([[NSFileManager defaultManager] copyItemAtPath:imagePath toPath:newPath error:&error]) {
+								resultPath = newPath;
+								NSLog(@"Copied source image from UIImagePickerControllerImageURL");
+							}
+							else
+								NSLog(@"Error copying image: %@", error);
+						}
+						else
+							NSLog(@"Error deleting existing image: %@", error);
+					}
+				}
 				
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
-				if ([[[UIDevice currentDevice] systemVersion] compare:@"13.0" options:NSNumericSearch] != NSOrderedAscending) {
-					[[PHImageManager defaultManager] requestImageDataAndOrientationForAsset:asset options:options resultHandler:^(NSData *imageData, NSString *dataUTI, CGImagePropertyOrientation orientation, NSDictionary *imageInfo) {
-						if (imageData != nil)
-							[self trySaveSourceImage:imageData withInfo:imageInfo];
-						else
-							NSLog(@"Couldn't fetch raw image data");
-					}];
-				}
-				else {
+				if (resultPath == nil)
+					asset = info[UIImagePickerControllerPHAsset];
+			}
 #endif
-					[[PHImageManager defaultManager] requestImageDataForAsset:asset options:options resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *imageInfo) {
-						if (imageData != nil)
-							[self trySaveSourceImage:imageData withInfo:imageInfo];
-						else
-							NSLog(@"Couldn't fetch raw image data");
-					}];
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
+			
+			if (resultPath == nil) {
+				if (asset == nil) {
+					NSURL *mediaUrl = info[UIImagePickerControllerReferenceURL] ?: info[UIImagePickerControllerMediaURL];
+					if (mediaUrl != nil)
+						asset = [[PHAsset fetchAssetsWithALAssetURLs:[NSArray arrayWithObject:mediaUrl] options:nil] firstObject];
 				}
+				
+				if (asset != nil) {
+					PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
+					options.synchronous = YES;
+					options.version = PHImageRequestOptionsVersionCurrent;
+					
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
+					if ([[[UIDevice currentDevice] systemVersion] compare:@"13.0" options:NSNumericSearch] != NSOrderedAscending) {
+						[[PHImageManager defaultManager] requestImageDataAndOrientationForAsset:asset options:options resultHandler:^(NSData *imageData, NSString *dataUTI, CGImagePropertyOrientation orientation, NSDictionary *imageInfo) {
+							if (imageData != nil)
+								[self trySaveSourceImage:imageData withInfo:imageInfo];
+							else
+								NSLog(@"Couldn't fetch raw image data");
+						}];
+					}
+					else {
 #endif
+						[[PHImageManager defaultManager] requestImageDataForAsset:asset options:options resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *imageInfo) {
+							if (imageData != nil)
+								[self trySaveSourceImage:imageData withInfo:imageInfo];
+							else
+								NSLog(@"Couldn't fetch raw image data");
+						}];
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
+					}
+#endif
+				}
 			}
 		}
 		
@@ -563,9 +590,7 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 	}
 	else { // video picked
 		NSURL *mediaUrl = info[UIImagePickerControllerMediaURL] ?: info[UIImagePickerControllerReferenceURL];
-		if (mediaUrl == nil)
-			resultPath = nil;
-		else {
+		if (mediaUrl != nil) {
 			resultPath = [mediaUrl path];
 			
 			// On iOS 13, picked file becomes unreachable as soon as the UIImagePickerController disappears,
