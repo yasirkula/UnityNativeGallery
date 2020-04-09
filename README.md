@@ -4,6 +4,8 @@
 
 **Forum Thread:** https://forum.unity.com/threads/native-gallery-for-android-ios-open-source.519619/
 
+**[Support the Developer ☕](https://yasirkula.itch.io/unity3d)**
+
 This plugin helps you save your images and/or videos to device **Gallery** on Android and **Photos** on iOS. It is also possible to pick an image or video from Gallery/Photos. It takes only a couple of steps to set everything up:
 
 After importing [NativeGallery.unitypackage](https://github.com/yasirkula/UnityNativeGallery/releases) to your project, only a few steps are required to set up the plugin:
