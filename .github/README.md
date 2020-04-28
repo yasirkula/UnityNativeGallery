@@ -6,9 +6,17 @@
 
 **[Support the Developer ☕](https://yasirkula.itch.io/unity3d)**
 
-This plugin helps you save your images and/or videos to device **Gallery** on Android and **Photos** on iOS. It is also possible to pick an image or video from Gallery/Photos. It takes only a couple of steps to set everything up:
+This plugin helps you save your images and/or videos to device **Gallery** on Android and **Photos** on iOS. It is also possible to pick an image or video from Gallery/Photos.
 
-After importing [NativeGallery.unitypackage](https://github.com/yasirkula/UnityNativeGallery/releases) to your project, only a few steps are required to set up the plugin:
+## INSTALLATION
+
+There are 4 ways to install this plugin:
+
+- import [NativeGallery.unitypackage](https://github.com/yasirkula/UnityNativeGallery/releases) via *Assets-Import Package*
+- clone/[download](https://github.com/yasirkula/UnityNativeGallery/archive/master.zip) this repository and move the *Plugins* folder to your Unity project's *Assets* folder
+- import it from [Asset Store](https://assetstore.unity.com/packages/tools/integration/native-gallery-for-android-ios-112630)
+- *(via Package Manager)* add the following line to *Packages/manifest.json*:
+  - `"com.yasirkula.nativegallery": "https://github.com/yasirkula/UnityNativeGallery.git",`
 
 ### Android Setup
 
@@ -20,8 +28,8 @@ There are two ways to set up the plugin on iOS:
 
 **a. Automated Setup for iOS**
 
-- (optional) change the value of **PHOTO_LIBRARY_USAGE_DESCRIPTION** in *Plugins/NativeGallery/Editor/NGPostProcessBuild.cs*
-- (Unity 2017.4 or earlier) if your minimum *Deployment Target* (iOS Version) is at least 8.0, set the value of **MINIMUM_TARGET_8_OR_ABOVE** to *true* in *NGPostProcessBuild.cs*
+- *(optional)* change the value of **PHOTO_LIBRARY_USAGE_DESCRIPTION** in *Plugins/NativeGallery/Editor/NGPostProcessBuild.cs*
+- *(Unity 2017.4 or earlier)* if your minimum *Deployment Target* (iOS Version) is at least 8.0, set the value of **MINIMUM_TARGET_8_OR_ABOVE** to *true* in *NGPostProcessBuild.cs*
 
 **b. Manual Setup for iOS**
 
@@ -45,7 +53,7 @@ Make sure that you've set the **Write Permission** to **External (SDCard)** in *
 
 Make sure that the *filename* parameter of the Save function includes the file's extension, as well
 
-## How To
+## HOW TO
 
 ### A. Saving Media To Gallery/Photos
 
@@ -111,7 +119,7 @@ Beginning with *6.0 Marshmallow*, Android apps must request runtime permissions 
 - **generateMipmaps** determines whether texture should have mipmaps or not
 - **linearColorSpace** determines whether texture should be in linear color space or sRGB color space
 
-## Example Code
+## EXAMPLE CODE
 
 The following code has three functions:
 - if you click the left one-third of the screen, it captures the screenshot of the game and saves it to Gallery/Photos
