@@ -654,7 +654,7 @@ public static class NativeGallery
 	public static Texture2D GetVideoThumbnail( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0 )
 	{
 		if( maxSize <= 0 )
-			maxSize = 1024;
+			maxSize = SystemInfo.maxTextureSize;
 
 #if !UNITY_EDITOR && UNITY_ANDROID
 		string thumbnailPath = AJC.CallStatic<string>( "GetVideoThumbnail", Context, videoPath, TemporaryImagePath + ".png", false, maxSize, captureTimeInSeconds );

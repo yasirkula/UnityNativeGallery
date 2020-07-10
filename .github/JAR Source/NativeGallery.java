@@ -586,6 +586,11 @@ public class NativeGallery
 
 			return width + ">" + height + ">" + duration + ">" + rotation;
 		}
+		catch( Exception e )
+		{
+			Log.e( "Unity", "Exception:", e );
+			return "";
+		}
 		finally
 		{
 			metadataRetriever.release();
@@ -593,7 +598,7 @@ public class NativeGallery
 	}
 
 	@TargetApi( Build.VERSION_CODES.Q )
-	public static String GetVideoThumbnail( Context context, final String path, final String savePath, final boolean saveAsJpeg, final int maxSize, final double captureTime )
+	public static String GetVideoThumbnail( Context context, final String path, final String savePath, final boolean saveAsJpeg, int maxSize, double captureTime )
 	{
 		Bitmap bitmap = null;
 		FileOutputStream out = null;
@@ -621,6 +626,32 @@ public class NativeGallery
 				try
 				{
 					metadataRetriever.setDataSource( path );
+
+					try
+					{
+						int width = Integer.parseInt( metadataRetriever.extractMetadata( MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH ) );
+						int height = Integer.parseInt( metadataRetriever.extractMetadata( MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT ) );
+						if( maxSize > width && maxSize > height )
+							maxSize = width > height ? width : height;
+					}
+					catch( Exception e )
+					{
+					}
+
+					if( captureTime < 0.0 )
+						captureTime = 0.0;
+					else
+					{
+						try
+						{
+							double duration = Long.parseLong( metadataRetriever.extractMetadata( MediaMetadataRetriever.METADATA_KEY_DURATION ) ) / 1000.0;
+							if( captureTime > duration )
+								captureTime = duration;
+						}
+						catch( Exception e )
+						{
+						}
+					}
 
 					long frameTime = (long) ( captureTime * 1000000.0 );
 					if( Build.VERSION.SDK_INT < 27 )

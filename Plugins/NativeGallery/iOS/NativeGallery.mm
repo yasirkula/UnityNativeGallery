@@ -452,7 +452,7 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 		AVURLAsset *asset = [AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:path] options:nil];
 		if (asset != nil) {
 			double videoDuration = CMTimeGetSeconds([asset duration]);
-			if (captureTime >= videoDuration - 0.1) {
+			if (videoDuration > 0.0 && captureTime >= videoDuration - 0.1) {
 				if (captureTime > videoDuration)
 					captureTime = videoDuration;
 				
@@ -469,7 +469,7 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 		else
 			NSLog(@"Error generating video thumbnail...");
 		
-		return [self getCString:nil];
+		return "";
 	}
 	
 	UIImage *thumbnail = [[UIImage alloc] initWithCGImage:image];
@@ -477,7 +477,7 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 	
 	if (![UIImagePNGRepresentation(thumbnail) writeToFile:savePath atomically:YES]) {
 		NSLog(@"Error saving thumbnail image");
-		return [self getCString:nil];
+		return "";
 	}
 	
 	return [self getCString:savePath];
