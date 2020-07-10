@@ -22,6 +22,7 @@ extern UIViewController* UnityGetGLViewController();
 + (int)isMediaPickerBusy;
 + (char *)getImageProperties:(NSString *)path;
 + (char *)getVideoProperties:(NSString *)path;
++ (char *)getVideoThumbnail:(NSString *)path savePath:(NSString *)savePath maximumSize:(int)maximumSize captureTime:(double)captureTime;
 + (char *)loadImageAtPath:(NSString *)path tempFilePath:(NSString *)tempFilePath maximumSize:(int)maximumSize;
 @end
 
@@ -438,6 +439,50 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 	return [self getCString:[NSString stringWithFormat:@"%d>%d>%lld>%f", (int)roundf(size.width), (int)roundf(size.height), duration, rotation]];
 }
 
++ (char *)getVideoThumbnail:(NSString *)path savePath:(NSString *)savePath maximumSize:(int)maximumSize captureTime:(double)captureTime {
+	AVAssetImageGenerator *thumbnailGenerator = [[AVAssetImageGenerator alloc] initWithAsset:[[AVURLAsset alloc] initWithURL:[NSURL fileURLWithPath:path] options:nil]];
+	thumbnailGenerator.appliesPreferredTrackTransform = YES;
+	thumbnailGenerator.maximumSize = CGSizeMake((CGFloat) maximumSize, (CGFloat) maximumSize);
+	thumbnailGenerator.requestedTimeToleranceBefore = kCMTimeZero;
+	thumbnailGenerator.requestedTimeToleranceAfter = kCMTimeZero;
+	
+	if (captureTime < 0.0)
+		captureTime = 0.0;
+	else {
+		AVURLAsset *asset = [AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:path] options:nil];
+		if (asset != nil) {
+			double videoDuration = CMTimeGetSeconds([asset duration]);
+			if (captureTime >= videoDuration - 0.1) {
+				if (captureTime > videoDuration)
+					captureTime = videoDuration;
+				
+				thumbnailGenerator.requestedTimeToleranceBefore = CMTimeMakeWithSeconds(1.0, 600);
+			}
+		}
+	}
+	
+	NSError *error = nil;
+	CGImageRef image = [thumbnailGenerator copyCGImageAtTime:CMTimeMakeWithSeconds(captureTime, 600) actualTime:nil error:&error];
+	if (image == nil) {
+		if (error != nil)
+			NSLog(@"Error generating video thumbnail: %@", error);
+		else
+			NSLog(@"Error generating video thumbnail...");
+		
+		return [self getCString:nil];
+	}
+	
+	UIImage *thumbnail = [[UIImage alloc] initWithCGImage:image];
+	CGImageRelease(image);
+	
+	if (![UIImagePNGRepresentation(thumbnail) writeToFile:savePath atomically:YES]) {
+		NSLog(@"Error saving thumbnail image");
+		return [self getCString:nil];
+	}
+	
+	return [self getCString:savePath];
+}
+
 + (UIImage *)scaleImage:(UIImage *)image maxSize:(int)maxSize {
 	CGFloat width = image.size.width;
 	CGFloat height = image.size.height;
@@ -725,6 +770,10 @@ extern "C" char* _NativeGallery_GetImageProperties(const char* path) {
 
 extern "C" char* _NativeGallery_GetVideoProperties(const char* path) {
 	return [UNativeGallery getVideoProperties:[NSString stringWithUTF8String:path]];
+}
+
+extern "C" char* _NativeGallery_GetVideoThumbnail(const char* path, const char* thumbnailSavePath, int maxSize, double captureTimeInSeconds) {
+	return [UNativeGallery getVideoThumbnail:[NSString stringWithUTF8String:path] savePath:[NSString stringWithUTF8String:thumbnailSavePath] maximumSize:maxSize captureTime:captureTimeInSeconds];
 }
 
 extern "C" char* _NativeGallery_LoadImageAtPath(const char* path, const char* temporaryFilePath, int maxSize) {

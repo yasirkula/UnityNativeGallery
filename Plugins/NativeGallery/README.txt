@@ -94,10 +94,20 @@ bool NativeGallery.CanOpenSettings();
 
 //// Utility Functions ////
 
+// Creates a Texture2D from the specified image file in correct orientation and returns it. Returns null, if something goes wrong
 // maxSize: determines the maximum size of the returned Texture2D in pixels. Larger textures will be down-scaled. If untouched, its value will be set to SystemInfo.maxTextureSize. It is recommended to set a proper maxSize for better performance
 // markTextureNonReadable: marks the generated texture as non-readable for better memory usage. If you plan to modify the texture later (e.g. GetPixels/SetPixels), set its value to false
 // generateMipmaps: determines whether texture should have mipmaps or not
 // linearColorSpace: determines whether texture should be in linear color space or sRGB color space
-Texture2D NativeGallery.LoadImageAtPath( string imagePath, int maxSize = -1, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false ): creates a Texture2D from the specified image file in correct orientation and returns it. Returns null, if something goes wrong
+Texture2D NativeGallery.LoadImageAtPath( string imagePath, int maxSize = -1, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false );
 
-NativeGallery.ImageProperties NativeGallery.GetImageProperties( string imagePath ): returns an ImageProperties instance that holds the width, height and mime type information of an image file without creating a Texture2D object. Mime type will be null, if it can't be determined
+// Creates a Texture2D thumbnail from a video file and returns it. Returns null, if something goes wrong
+// maxSize: determines the maximum size of the returned Texture2D in pixels. If untouched, its value will be set to 1024. It is recommended to set a small maxSize for better performance
+// captureTimeInSeconds: determines the frame of the video that the thumbnail is captured from. If untouched, OS will decide this value
+Texture2D NativeGallery.GetVideoThumbnail( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0 );
+
+// Returns an ImageProperties instance that holds the width, height and mime type information of an image file without creating a Texture2D object. Mime type will be null, if it can't be determined
+NativeGallery.ImageProperties NativeGallery.GetImageProperties( string imagePath );
+
+// Returns a VideoProperties instance that holds the width, height, duration (in milliseconds) and rotation information of a video file. To play a video in correct orientation, you should rotate it by rotation degrees clockwise. For a 90-degree or 270-degree rotated video, values of width and height should be swapped to get the display size of the video
+NativeGallery.VideoProperties NativeGallery.GetVideoProperties( string videoPath );

@@ -14,6 +14,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.media.ExifInterface;
 import android.media.MediaMetadataRetriever;
+import android.media.ThumbnailUtils;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -21,6 +22,7 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Log;
+import android.util.Size;
 import android.webkit.MimeTypeMap;
 
 import java.io.File;
@@ -562,24 +564,105 @@ public class NativeGallery
 	public static String GetVideoProperties( Context context, final String path )
 	{
 		MediaMetadataRetriever metadataRetriever = new MediaMetadataRetriever();
-		metadataRetriever.setDataSource( path );
+		try
+		{
+			metadataRetriever.setDataSource( path );
 
-		String width = metadataRetriever.extractMetadata( MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH );
-		String height = metadataRetriever.extractMetadata( MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT );
-		String duration = metadataRetriever.extractMetadata( MediaMetadataRetriever.METADATA_KEY_DURATION );
-		String rotation = "0";
-		if( Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 )
-			rotation = metadataRetriever.extractMetadata( MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION );
+			String width = metadataRetriever.extractMetadata( MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH );
+			String height = metadataRetriever.extractMetadata( MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT );
+			String duration = metadataRetriever.extractMetadata( MediaMetadataRetriever.METADATA_KEY_DURATION );
+			String rotation = "0";
+			if( Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 )
+				rotation = metadataRetriever.extractMetadata( MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION );
 
-		if( width == null )
-			width = "0";
-		if( height == null )
-			height = "0";
-		if( duration == null )
-			duration = "0";
-		if( rotation == null )
-			rotation = "0";
+			if( width == null )
+				width = "0";
+			if( height == null )
+				height = "0";
+			if( duration == null )
+				duration = "0";
+			if( rotation == null )
+				rotation = "0";
 
-		return width + ">" + height + ">" + duration + ">" + rotation;
+			return width + ">" + height + ">" + duration + ">" + rotation;
+		}
+		finally
+		{
+			metadataRetriever.release();
+		}
+	}
+
+	@TargetApi( Build.VERSION_CODES.Q )
+	public static String GetVideoThumbnail( Context context, final String path, final String savePath, final boolean saveAsJpeg, final int maxSize, final double captureTime )
+	{
+		Bitmap bitmap = null;
+		FileOutputStream out = null;
+
+		try
+		{
+			if( captureTime < 0.0 && maxSize <= 1024 )
+			{
+				try
+				{
+					if( Build.VERSION.SDK_INT < Build.VERSION_CODES.Q )
+						bitmap = ThumbnailUtils.createVideoThumbnail( path, maxSize > 512 ? MediaStore.Video.Thumbnails.FULL_SCREEN_KIND : MediaStore.Video.Thumbnails.MINI_KIND );
+					else
+						bitmap = ThumbnailUtils.createVideoThumbnail( new File( path ), maxSize > 512 ? new Size( 1024, 786 ) : new Size( 512, 384 ), null );
+				}
+				catch( Exception e )
+				{
+					Log.e( "Unity", "Exception:", e );
+				}
+			}
+
+			if( bitmap == null )
+			{
+				MediaMetadataRetriever metadataRetriever = new MediaMetadataRetriever();
+				try
+				{
+					metadataRetriever.setDataSource( path );
+
+					long frameTime = (long) ( captureTime * 1000000.0 );
+					if( Build.VERSION.SDK_INT < 27 )
+						bitmap = metadataRetriever.getFrameAtTime( frameTime, MediaMetadataRetriever.OPTION_CLOSEST_SYNC );
+					else
+						bitmap = metadataRetriever.getScaledFrameAtTime( frameTime, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, maxSize, maxSize );
+				}
+				finally
+				{
+					metadataRetriever.release();
+				}
+			}
+
+			if( bitmap == null )
+				return "";
+
+			out = new FileOutputStream( savePath );
+			if( saveAsJpeg )
+				bitmap.compress( Bitmap.CompressFormat.JPEG, 100, out );
+			else
+				bitmap.compress( Bitmap.CompressFormat.PNG, 100, out );
+
+			return savePath;
+		}
+		catch( Exception e )
+		{
+			Log.e( "Unity", "Exception:", e );
+			return "";
+		}
+		finally
+		{
+			if( bitmap != null )
+				bitmap.recycle();
+
+			try
+			{
+				if( out != null )
+					out.close();
+			}
+			catch( Exception e )
+			{
+			}
+		}
 	}
 }
