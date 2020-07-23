@@ -51,6 +51,10 @@ If your project uses ProGuard, try adding the following line to ProGuard filters
 
 Make sure that you've set the **Write Permission** to **External (SDCard)** in *Player Settings*.
 
+- **NativeGallery functions return Permission.Denied even though I've set "Write Permission" to "External (SDCard)"**
+
+Declare the `WRITE_EXTERNAL_STORAGE` permission manually in your [**Plugins/Android/AndroidManifest.xml** file](https://answers.unity.com/questions/982710/where-is-the-manifest-file-in-unity.html) with the `tools:node="replace"` attribute as follows: `<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="replace"/>`
+
 - **Saving image/video doesn't work properly**
 
 Make sure that the *filename* parameter of the Save function includes the file's extension, as well
