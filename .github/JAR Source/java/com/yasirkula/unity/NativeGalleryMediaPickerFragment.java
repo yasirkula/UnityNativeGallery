@@ -4,20 +4,19 @@ import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.ContentResolver;
-import android.content.ContentUris;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -45,8 +44,6 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 	private String savePathDirectory, savePathFilename;
 
 	private ArrayList<String> savedFiles;
-
-	private static String secondaryStoragePath = null;
 
 	public NativeGalleryMediaPickerFragment()
 	{
@@ -76,23 +73,51 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 			savePathFilename = pathSeparator >= 0 ? savePath.substring( pathSeparator + 1 ) : savePath;
 			savePathDirectory = pathSeparator > 0 ? savePath.substring( 0, pathSeparator ) : getActivity().getCacheDir().getAbsolutePath();
 
+			int mediaTypeCount = 0;
+			if( ( mediaType & NativeGallery.MEDIA_TYPE_IMAGE ) == NativeGallery.MEDIA_TYPE_IMAGE )
+				mediaTypeCount++;
+			if( ( mediaType & NativeGallery.MEDIA_TYPE_VIDEO ) == NativeGallery.MEDIA_TYPE_VIDEO )
+				mediaTypeCount++;
+			if( ( mediaType & NativeGallery.MEDIA_TYPE_AUDIO ) == NativeGallery.MEDIA_TYPE_AUDIO )
+				mediaTypeCount++;
+
 			Intent intent;
-			if( !preferGetContent && !selectMultiple )
+			if( !preferGetContent && !selectMultiple && mediaTypeCount == 1 && mediaType != NativeGallery.MEDIA_TYPE_AUDIO )
 			{
-				if( mediaType == 0 )
+				if( mediaType == NativeGallery.MEDIA_TYPE_IMAGE )
 					intent = new Intent( Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI );
-				else if( mediaType == 1 )
+				else if( mediaType == NativeGallery.MEDIA_TYPE_VIDEO )
 					intent = new Intent( Intent.ACTION_PICK, MediaStore.Video.Media.EXTERNAL_CONTENT_URI );
 				else
 					intent = new Intent( Intent.ACTION_PICK, MediaStore.Audio.Media.EXTERNAL_CONTENT_URI );
 			}
 			else
 			{
-				intent = new Intent( Intent.ACTION_GET_CONTENT );
+				intent = new Intent( mediaTypeCount > 1 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT ? Intent.ACTION_OPEN_DOCUMENT : Intent.ACTION_GET_CONTENT );
 				intent.addCategory( Intent.CATEGORY_OPENABLE );
+				intent.addFlags( Intent.FLAG_GRANT_READ_URI_PERMISSION );
 
-				if( selectMultiple )
-					allowMultipleMedia( intent );
+				if( selectMultiple && Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2 )
+					intent.putExtra( Intent.EXTRA_ALLOW_MULTIPLE, true );
+
+				if( mediaTypeCount > 1 )
+				{
+					mime = "*/*";
+
+					if( Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT )
+					{
+						String[] mimetypes = new String[mediaTypeCount];
+						int index = 0;
+						if( ( mediaType & NativeGallery.MEDIA_TYPE_IMAGE ) == NativeGallery.MEDIA_TYPE_IMAGE )
+							mimetypes[index++] = "image/*";
+						if( ( mediaType & NativeGallery.MEDIA_TYPE_VIDEO ) == NativeGallery.MEDIA_TYPE_VIDEO )
+							mimetypes[index++] = "video/*";
+						if( ( mediaType & NativeGallery.MEDIA_TYPE_AUDIO ) == NativeGallery.MEDIA_TYPE_AUDIO )
+							mimetypes[index++] = "audio/*";
+
+						intent.putExtra( Intent.EXTRA_MIME_TYPES, mimetypes );
+					}
+				}
 			}
 
 			intent.setType( mime );
@@ -102,12 +127,6 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 
 			startActivityForResult( Intent.createChooser( intent, title ), MEDIA_REQUEST_CODE );
 		}
-	}
-
-	@TargetApi( Build.VERSION_CODES.JELLY_BEAN_MR2 )
-	private void allowMultipleMedia( Intent intent )
-	{
-		intent.putExtra( Intent.EXTRA_ALLOW_MULTIPLE, true );
 	}
 
 	// Credit: https://stackoverflow.com/a/47023265/2373034
@@ -128,7 +147,6 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 		}
 	}
 
-	// Credit: https://stackoverflow.com/a/36714242/2373034
 	private String getPathFromURI( Uri uri )
 	{
 		if( uri == null )
@@ -140,163 +158,38 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 		if( android.os.Build.VERSION.SDK_INT >= 29 && !Environment.isExternalStorageLegacy() )
 			return copyToTempFile( uri );
 
-		String selection = null;
-		String[] selectionArgs = null;
-
-		try
+		String path = NativeGalleryUtils.GetPathFromURI( getActivity(), uri );
+		if( path != null && path.length() > 0 )
 		{
-			if( Build.VERSION.SDK_INT >= 19 && DocumentsContract.isDocumentUri( getActivity().getApplicationContext(), uri ) )
+			// Check if file is accessible
+			FileInputStream inputStream = null;
+			try
 			{
-				if( "com.android.externalstorage.documents".equals( uri.getAuthority() ) )
-				{
-					final String docId = DocumentsContract.getDocumentId( uri );
-					final String[] split = docId.split( ":" );
+				inputStream = new FileInputStream( new File( path ) );
+				inputStream.read();
 
-					if( "primary".equalsIgnoreCase( split[0] ) )
-						return Environment.getExternalStorageDirectory() + File.separator + split[1];
-					else if( "raw".equalsIgnoreCase( split[0] ) ) // https://stackoverflow.com/a/51874578/2373034
-						return split[1];
-
-					return getSecondaryStoragePathFor( split[1] );
-				}
-				else if( "com.android.providers.downloads.documents".equals( uri.getAuthority() ) )
-				{
-					final String id = DocumentsContract.getDocumentId( uri );
-					if( id.startsWith( "raw:" ) ) // https://stackoverflow.com/a/51874578/2373034
-						return id.substring( 4 );
-
-					uri = ContentUris.withAppendedId( Uri.parse( "content://downloads/public_downloads" ), Long.valueOf( id ) );
-				}
-				else if( "com.android.providers.media.documents".equals( uri.getAuthority() ) )
-				{
-					final String docId = DocumentsContract.getDocumentId( uri );
-					final String[] split = docId.split( ":" );
-					final String type = split[0];
-					if( "image".equals( type ) )
-						uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
-					else if( "video".equals( type ) )
-						uri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
-					else if( "audio".equals( type ) )
-						uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
-					else if( "raw".equals( type ) ) // https://stackoverflow.com/a/51874578/2373034
-						return split[1];
-
-					selection = "_id=?";
-					selectionArgs = new String[] { split[1] };
-				}
+				return path;
 			}
-
-			if( "content".equalsIgnoreCase( uri.getScheme() ) )
+			catch( Exception e )
 			{
-				String[] projection = { MediaStore.Images.Media.DATA };
-				Cursor cursor = null;
-
-				try
+			}
+			finally
+			{
+				if( inputStream != null )
 				{
-					cursor = getActivity().getContentResolver().query( uri, projection, selection, selectionArgs, null );
-					if( cursor != null )
+					try
 					{
-						int column_index = cursor.getColumnIndexOrThrow( MediaStore.Images.Media.DATA );
-						if( cursor.moveToFirst() )
-						{
-							String columnValue = cursor.getString( column_index );
-							if( columnValue != null && columnValue.length() > 0 )
-								return columnValue;
-						}
+						inputStream.close();
 					}
-				}
-				catch( Exception e )
-				{
-				}
-				finally
-				{
-					if( cursor != null )
-						cursor.close();
-				}
-			}
-			else if( "file".equalsIgnoreCase( uri.getScheme() ) )
-				return uri.getPath();
-
-			// File path couldn't be determined, try to copy the selected file to a temporary path and use it instead
-			return copyToTempFile( uri );
-		}
-		catch( Exception e )
-		{
-			Log.e( "Unity", "Exception:", e );
-			return null;
-		}
-	}
-
-	private String getSecondaryStoragePathFor( String localPath )
-	{
-		if( secondaryStoragePath == null )
-		{
-			String primaryPath = Environment.getExternalStorageDirectory().getAbsolutePath();
-
-			// Try paths saved at system environments
-			// Credit: https://stackoverflow.com/a/32088396/2373034
-			String strSDCardPath = System.getenv( "SECONDARY_STORAGE" );
-			if( strSDCardPath == null || strSDCardPath.length() == 0 )
-				strSDCardPath = System.getenv( "EXTERNAL_SDCARD_STORAGE" );
-
-			if( strSDCardPath != null && strSDCardPath.length() > 0 )
-			{
-				if( !strSDCardPath.contains( ":" ) )
-					strSDCardPath += ":";
-
-				String[] externalPaths = strSDCardPath.split( ":" );
-				for( int i = 0; i < externalPaths.length; i++ )
-				{
-					String path = externalPaths[i];
-					if( path != null && path.length() > 0 )
+					catch( Exception e )
 					{
-						File file = new File( path );
-						if( file.exists() && file.isDirectory() && file.canRead() && !file.getAbsolutePath().equalsIgnoreCase( primaryPath ) )
-						{
-							String absolutePath = file.getAbsolutePath() + File.separator + localPath;
-							if( new File( absolutePath ).exists() )
-							{
-								secondaryStoragePath = file.getAbsolutePath();
-								return absolutePath;
-							}
-						}
 					}
 				}
 			}
-
-			// Try most common possible paths
-			// Credit: https://gist.github.com/PauloLuan/4bcecc086095bce28e22
-			String[] possibleRoots = new String[] { "/storage", "/mnt", "/storage/removable",
-					"/removable", "/data", "/mnt/media_rw", "/mnt/sdcard0" };
-			for( String root : possibleRoots )
-			{
-				try
-				{
-					File fileList[] = new File( root ).listFiles();
-					for( File file : fileList )
-					{
-						if( file.exists() && file.isDirectory() && file.canRead() && !file.getAbsolutePath().equalsIgnoreCase( primaryPath ) )
-						{
-							String absolutePath = file.getAbsolutePath() + File.separator + localPath;
-							if( new File( absolutePath ).exists() )
-							{
-								secondaryStoragePath = file.getAbsolutePath();
-								return absolutePath;
-							}
-						}
-					}
-				}
-				catch( Exception e )
-				{
-				}
-			}
-
-			secondaryStoragePath = "_NulL_";
 		}
-		else if( !secondaryStoragePath.equals( "_NulL_" ) )
-			return secondaryStoragePath + File.separator + localPath;
 
-		return null;
+		// File path couldn't be determined, copy the file to an accessible temporary location
+		return copyToTempFile( uri );
 	}
 
 	private String copyToTempFile( Uri uri )

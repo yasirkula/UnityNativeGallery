@@ -35,6 +35,10 @@ If your project uses ProGuard, try adding the following line to ProGuard filters
 - Nothing happens when I try to access the Gallery on Android
 Make sure that you've set the "Write Permission" to "External (SDCard)" in Player Settings.
 
+- NativeGallery functions return Permission.Denied even though I've set "Write Permission" to "External (SDCard)"
+Declare the WRITE_EXTERNAL_STORAGE permission manually in your Plugins/Android/AndroidManifest.xml file as follows: <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="replace"/>
+You'll need to add the following attribute to the '<manifest ...>' element: xmlns:tools="http://schemas.android.com/tools"
+
 - Saving image/video doesn't work properly
 Make sure that the "filename" parameter of the Save function includes the file's extension, as well
 
@@ -44,8 +48,9 @@ Please see the online documentation for a more in-depth documentation of the Scr
 
 enum NativeGallery.Permission { Denied = 0, Granted = 1, ShouldAsk = 2 };
 enum NativeGallery.ImageOrientation { Unknown = -1, Normal = 0, Rotate90 = 1, Rotate180 = 2, Rotate270 = 3, FlipHorizontal = 4, Transpose = 5, FlipVertical = 6, Transverse = 7 }; // EXIF orientation: http://sylvana.net/jpegcrop/exif_orientation.html (indices are reordered)
+enum MediaType { Image = 1, Video = 2, Audio = 4 };
 
-delegate void MediaSaveCallback( string error );
+delegate void MediaSaveCallback( bool success, string path );
 delegate void NativeGallery.MediaPickCallback( string path );
 delegate void MediaPickMultipleCallback( string[] paths );
 
@@ -54,7 +59,7 @@ delegate void MediaPickMultipleCallback( string[] paths );
 // On Android, your images are saved at DCIM/album/filename. On iOS, the image will be saved in the corresponding album.
 // NOTE: Make sure that the filename parameter includes the file's extension, as well
 // IMPORTANT: NativeGallery will never overwrite existing media on the Gallery. If there is a name conflict, NativeGallery will ensure a unique filename. So don't put '{0}' in filename anymore (for new users, putting {0} in filename was recommended in order to ensure unique filenames in earlier versions, this is no longer necessary).
-// MediaSaveCallback takes a string parameter which stores an error string if something goes wrong while saving the image/video, or null if it is saved successfully
+// MediaSaveCallback takes "bool success" and "string path" parameters. If the image/video is saved successfully, success becomes true. On Android, path stores where the image/video was saved to (is null on iOS). If the raw filepath can't be determined, an abstract Storage Access Framework path will be returned (File.Exists returns false for that path)
 NativeGallery.Permission NativeGallery.SaveImageToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null );
 NativeGallery.Permission NativeGallery.SaveImageToGallery( string existingMediaPath, string album, string filename, MediaSaveCallback callback = null );
 NativeGallery.Permission NativeGallery.SaveImageToGallery( Texture2D image, string album, string filename, MediaSaveCallback callback = null );
@@ -74,10 +79,23 @@ NativeGallery.Permission NativeGallery.GetVideoFromGallery( MediaPickCallback ca
 NativeGallery.Permission NativeGallery.GetImagesFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "image/*" );
 NativeGallery.Permission NativeGallery.GetVideosFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "video/*" );
 
+// Picking audio files is supported on Android only
+NativeGallery.Permission NativeGallery.GetAudioFromGallery( MediaPickCallback callback, string title = "", string mime = "audio/*" );
+NativeGallery.Permission NativeGallery.GetAudiosFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "audio/*" );
+
+// Allows you to pick images/videos/audios at the same time
+// mediaTypes: bitwise OR'ed media types to pick from (e.g. to pick an image or video, use 'MediaType.Image | MediaType.Video')
+NativeGallery.Permission NativeGallery.GetMixedMediaFromGallery( MediaPickCallback callback, MediaType mediaTypes, string title = "" );
+NativeGallery.Permission NativeGallery.GetMixedMediasFromGallery( MediaPickMultipleCallback callback, MediaType mediaTypes, string title = "" );
+
+
 // Returns true if selecting multiple images/videos from Gallery/Photos is possible on this device (only available on Android 18 and later; iOS not supported)
 bool NativeGallery.CanSelectMultipleFilesFromGallery();
 
-// Returns true if the user is currently picking media from Gallery/Photos. In that case, another GetImageFromGallery or GetVideoFromGallery request will simply be ignored
+// Returns true if GetMixedMediaFromGallery/GetMixedMediasFromGallery functions are supported (available on Android 19 and later and all iOS versions)
+bool NativeGallery.CanSelectMultipleMediaTypesFromGallery();
+
+// Returns true if the user is currently picking media from Gallery/Photos. In that case, another GetImageFromGallery, GetVideoFromGallery or GetAudioFromGallery request will simply be ignored
 bool NativeGallery.IsMediaPickerBusy();
 
 

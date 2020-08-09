@@ -16,30 +16,27 @@ namespace NativeGalleryNamespace
 				DontDestroyOnLoad( instance.gameObject );
 			}
 			else if( instance.callback != null )
-				instance.callback( null );
+				instance.callback( false, null );
 
 			instance.callback = callback;
 		}
-		
+
 		public void OnMediaSaveCompleted( string message )
 		{
-			if( callback != null )
-			{
-				callback( null );
-				callback = null;
-			}
+			NativeGallery.MediaSaveCallback _callback = callback;
+			callback = null;
+
+			if( _callback != null )
+				_callback( true, null );
 		}
 
 		public void OnMediaSaveFailed( string error )
 		{
-			if( string.IsNullOrEmpty( error ) )
-				error = "Unknown error";
+			NativeGallery.MediaSaveCallback _callback = callback;
+			callback = null;
 
-			if( callback != null )
-			{
-				callback( error );
-				callback = null;
-			}
+			if( _callback != null )
+				_callback( false, null );
 		}
 	}
 }

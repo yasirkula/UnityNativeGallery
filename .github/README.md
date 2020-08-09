@@ -65,7 +65,7 @@ Make sure that the *filename* parameter of the Save function includes the file's
 
 `NativeGallery.SaveImageToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null )`: use this function if you have the raw bytes of the image. 
 - On Android, your images are saved at **DCIM/album/filename**. On iOS, the image will be saved in the corresponding album. Make sure that the *filename* parameter includes the file's extension, as well
-- **MediaSaveCallback** takes a string parameter which stores an error string if something goes wrong while saving the image/video, or *null* if it is saved successfully. This parameter is optional
+- **MediaSaveCallback** takes `bool success` and `string path` parameters. If the image/video is saved successfully, *success* becomes *true*. On Android, *path* stores where the image/video was saved to (is *null* on iOS). If the raw filepath can't be determined, an abstract Storage Access Framework path will be returned (*File.Exists* returns *false* for that path)
 
 **IMPORTANT:** NativeGallery will never overwrite existing media on the Gallery. If there is a name conflict, NativeGallery will ensure a unique filename. So don't put `{0}` in *filename* anymore (for new users, putting {0} in filename was recommended in order to ensure unique filenames in earlier versions, this is no longer necessary).
 
@@ -86,13 +86,24 @@ Make sure that the *filename* parameter of the Save function includes the file's
 
 `NativeGallery.GetVideoFromGallery( MediaPickCallback callback, string title = "", string mime = "video/*" )`: prompts the user to select a video from Gallery/Photos. This function works similar to its *GetImageFromGallery* equivalent.
 
+`NativeGallery.GetAudioFromGallery( MediaPickCallback callback, string title = "", string mime = "audio/*" )`: prompts the user to select an audio file. This function works similar to its *GetImageFromGallery* equivalent. Works on Android only.
+
+`NativeGallery.GetMixedMediaFromGallery( MediaPickCallback callback, MediaType mediaTypes, string title = "" )`: prompts the user to select an image/video/audio file. This function is available on Android 19 and later and all iOS versions. Selecting audio files is not supported on iOS. 
+- **mediaTypes** is the bitwise OR'ed media types that will be displayed in the file picker dialog (e.g. to pick an image or video, use `MediaType.Image | MediaType.Video`)
+
 `NativeGallery.GetImagesFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "image/*" )`: prompts the user to select one or more images from Gallery/Photos. **MediaPickMultipleCallback** takes a *string[]* parameter which stores the path(s) of the selected image(s)/video(s), or *null* if nothing is selected. Selecting multiple files from gallery is only available on *Android 18* and later (iOS not supported). Call *CanSelectMultipleFilesFromGallery()* to see if this feature is available.
 
 `NativeGallery.GetVideosFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "video/*" )`: prompts the user to select one or more videos from Gallery/Photos. This function works similar to its *GetImagesFromGallery* equivalent.
 
-`NativeGallery.CanSelectMultipleFilesFromGallery()`: returns true if selecting multiple images/videos from Gallery/Photos is possible on this device.
+`NativeGallery.GetAudiosFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "audio/*" )`: prompts the user to select one or more audio files. This function works similar to its *GetImagesFromGallery* equivalent. Works on Android only.
 
-`NativeGallery.IsMediaPickerBusy()`: returns true if the user is currently picking media from Gallery/Photos. In that case, another GetImageFromGallery or GetVideoFromGallery request will simply be ignored.
+`NativeGallery.GetMixedMediasFromGallery( MediaPickMultipleCallback callback, MediaType mediaTypes, string title = "" )`: prompts the user to select one or more image/video/audio files. Selecting audio files is not supported on iOS.
+
+`NativeGallery.CanSelectMultipleFilesFromGallery()`: returns *true* if selecting multiple images/videos from Gallery/Photos is possible on this device.
+
+`NativeGallery.CanSelectMultipleMediaTypesFromGallery()`: returns *true* if *GetMixedMediaFromGallery*/*GetMixedMediasFromGallery* functions are supported on this device.
+
+`NativeGallery.IsMediaPickerBusy()`: returns *true* if the user is currently picking media from Gallery/Photos. In that case, another GetImageFromGallery, GetVideoFromGallery or GetAudioFromGallery request will simply be ignored.
 
 Almost all of these functions return a *NativeGallery.Permission* value. More details about it is available below.
 
@@ -177,7 +188,9 @@ private IEnumerator TakeScreenshotAndSave()
 	ss.Apply();
 
 	// Save the screenshot to Gallery/Photos
-	Debug.Log( "Permission result: " + NativeGallery.SaveImageToGallery( ss, "GalleryTest", "Image.png" ) );
+	NativeGallery.Permission permission = NativeGallery.SaveImageToGallery( ss, "GalleryTest", "Image.png", ( success, path ) => Debug.Log( "Media save result: " + success + " " + path ) );
+	
+	Debug.Log( "Permission result: " + permission );
 	
 	// To avoid memory leaks
 	Destroy( ss );
@@ -234,5 +247,19 @@ private void PickVideo()
 	}, "Select a video" );
 
 	Debug.Log( "Permission result: " + permission );
+}
+
+// Example code doesn't use this function but it is here for reference
+private void PickImageOrVideo()
+{
+	if( NativeGallery.CanSelectMultipleMediaTypesFromGallery() )
+	{
+		NativeGallery.Permission permission = NativeGallery.GetMixedMediaFromGallery( ( path ) =>
+		{
+			Debug.Log( "Media path: " + path );
+		}, NativeGallery.MediaType.Image | NativeGallery.MediaType.Video, "Select an image or video" );
+
+		Debug.Log( "Permission result: " + permission );
+	}
 }
 ```

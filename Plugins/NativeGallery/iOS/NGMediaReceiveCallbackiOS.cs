@@ -11,7 +11,7 @@ namespace NativeGalleryNamespace
 		private float nextBusyCheckTime;
 
 		public static bool IsBusy { get; private set; }
-		
+
 		[System.Runtime.InteropServices.DllImport( "__Internal" )]
 		private static extern int _NativeGallery_IsMediaPickerBusy();
 
@@ -31,7 +31,7 @@ namespace NativeGalleryNamespace
 			instance.nextBusyCheckTime = Time.realtimeSinceStartup + 1f;
 			IsBusy = true;
 		}
-		
+
 		private void Update()
 		{
 			if( IsBusy )
@@ -43,12 +43,12 @@ namespace NativeGalleryNamespace
 					if( _NativeGallery_IsMediaPickerBusy() == 0 )
 					{
 						IsBusy = false;
-						
-						if( callback != null )
-						{
-							callback( null );
-							callback = null;
-						}
+
+						NativeGallery.MediaPickCallback _callback = callback;
+						callback = null;
+
+						if( _callback != null )
+							_callback( null );
 					}
 				}
 			}
@@ -57,15 +57,15 @@ namespace NativeGalleryNamespace
 		public void OnMediaReceived( string path )
 		{
 			IsBusy = false;
-			
+
 			if( string.IsNullOrEmpty( path ) )
 				path = null;
-			
-			if( callback != null )
-			{
-				callback( path );
-				callback = null;
-			}
+
+			NativeGallery.MediaPickCallback _callback = callback;
+			callback = null;
+
+			if( _callback != null )
+				_callback( path );
 		}
 	}
 }

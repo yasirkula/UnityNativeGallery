@@ -1,13 +1,8 @@
 package com.yasirkula.unity;
 
-import android.Manifest;
 import android.annotation.TargetApi;
-import android.app.Activity;
-import android.app.Fragment;
-import android.content.ContentValues;
+import android.content.ContentUris;
 import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -17,150 +12,188 @@ import android.media.MediaMetadataRetriever;
 import android.media.ThumbnailUtils;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.Environment;
+import android.provider.DocumentsContract;
 import android.provider.MediaStore;
-import android.provider.Settings;
 import android.util.Log;
 import android.util.Size;
-import android.webkit.MimeTypeMap;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Locale;
 
-/**
- * Created by yasirkula on 22.06.2017.
- */
-
-public class NativeGallery
+public class NativeGalleryUtils
 {
-	public static void SaveMedia( Context context, int mediaType, String filePath, String directoryName )
+	private static String secondaryStoragePath = null;
+
+	// Credit: https://stackoverflow.com/a/36714242/2373034
+	public static String GetPathFromURI( Context context, Uri uri )
 	{
-		File originalFile = new File( filePath );
-		if( !originalFile.exists() )
+		if( uri == null )
+			return null;
+
+		String selection = null;
+		String[] selectionArgs = null;
+
+		try
 		{
-			Log.e( "Unity", "Original media file is missing or inaccessible!" );
-			return;
-		}
-
-		int pathSeparator = filePath.lastIndexOf( '/' );
-		int extensionSeparator = filePath.lastIndexOf( '.' );
-		String filename = pathSeparator >= 0 ? filePath.substring( pathSeparator + 1 ) : filePath;
-		String extension = extensionSeparator >= 0 ? filePath.substring( extensionSeparator + 1 ) : "";
-
-		// Credit: https://stackoverflow.com/a/31691791/2373034
-		String mimeType = extension.length() > 0 ? MimeTypeMap.getSingleton().getMimeTypeFromExtension( extension.toLowerCase( Locale.ENGLISH ) ) : null;
-
-		ContentValues values = new ContentValues();
-		values.put( MediaStore.MediaColumns.TITLE, filename );
-		values.put( MediaStore.MediaColumns.DISPLAY_NAME, filename );
-		values.put( MediaStore.MediaColumns.DATE_ADDED, System.currentTimeMillis() / 1000 );
-
-		if( mimeType != null && mimeType.length() > 0 )
-			values.put( MediaStore.MediaColumns.MIME_TYPE, mimeType );
-
-		if( mediaType == 0 )
-		{
-			int imageOrientation = GetImageOrientation( context, filePath );
-			switch( imageOrientation )
+			if( Build.VERSION.SDK_INT >= 19 && DocumentsContract.isDocumentUri( context.getApplicationContext(), uri ) )
 			{
-				case ExifInterface.ORIENTATION_ROTATE_270:
-				case ExifInterface.ORIENTATION_TRANSVERSE:
+				if( "com.android.externalstorage.documents".equals( uri.getAuthority() ) )
 				{
-					values.put( MediaStore.Images.Media.ORIENTATION, 270 );
-					break;
+					final String docId = DocumentsContract.getDocumentId( uri );
+					final String[] split = docId.split( ":" );
+
+					if( "primary".equalsIgnoreCase( split[0] ) )
+						return Environment.getExternalStorageDirectory() + File.separator + split[1];
+					else if( "raw".equalsIgnoreCase( split[0] ) ) // https://stackoverflow.com/a/51874578/2373034
+						return split[1];
+
+					return GetSecondaryStoragePathFor( split[1] );
 				}
-				case ExifInterface.ORIENTATION_ROTATE_180:
+				else if( "com.android.providers.downloads.documents".equals( uri.getAuthority() ) )
 				{
-					values.put( MediaStore.Images.Media.ORIENTATION, 180 );
-					break;
+					final String id = DocumentsContract.getDocumentId( uri );
+					if( id.startsWith( "raw:" ) ) // https://stackoverflow.com/a/51874578/2373034
+						return id.substring( 4 );
+
+					uri = ContentUris.withAppendedId( Uri.parse( "content://downloads/public_downloads" ), Long.valueOf( id ) );
 				}
-				case ExifInterface.ORIENTATION_ROTATE_90:
-				case ExifInterface.ORIENTATION_TRANSPOSE:
+				else if( "com.android.providers.media.documents".equals( uri.getAuthority() ) )
 				{
-					values.put( MediaStore.Images.Media.ORIENTATION, 90 );
-					break;
+					final String docId = DocumentsContract.getDocumentId( uri );
+					final String[] split = docId.split( ":" );
+					final String type = split[0];
+					if( "image".equals( type ) )
+						uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+					else if( "video".equals( type ) )
+						uri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
+					else if( "audio".equals( type ) )
+						uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
+					else if( "raw".equals( type ) ) // https://stackoverflow.com/a/51874578/2373034
+						return split[1];
+
+					selection = "_id=?";
+					selectionArgs = new String[] { split[1] };
 				}
 			}
-		}
 
-		Uri externalContentUri;
-		if( mediaType == 0 )
-			externalContentUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
-		else if( mediaType == 1 )
-			externalContentUri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
-		else
-			externalContentUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
-
-		// Android 10 restricts our access to the raw filesystem, use MediaStore to save media in that case
-		if( android.os.Build.VERSION.SDK_INT >= 29 )
-		{
-			values.put( MediaStore.MediaColumns.RELATIVE_PATH, "DCIM/" + directoryName );
-			values.put( MediaStore.MediaColumns.DATE_TAKEN, System.currentTimeMillis() );
-			values.put( MediaStore.MediaColumns.IS_PENDING, true );
-
-			Uri uri = context.getContentResolver().insert( externalContentUri, values );
-			if( uri != null )
+			if( "content".equalsIgnoreCase( uri.getScheme() ) )
 			{
+				String[] projection = { MediaStore.Images.Media.DATA };
+				Cursor cursor = null;
+
 				try
 				{
-					if( WriteFileToStream( originalFile, context.getContentResolver().openOutputStream( uri ) ) )
+					cursor = context.getContentResolver().query( uri, projection, selection, selectionArgs, null );
+					if( cursor != null )
 					{
-						values.put( MediaStore.MediaColumns.IS_PENDING, false );
-						context.getContentResolver().update( uri, values, null, null );
+						int column_index = cursor.getColumnIndexOrThrow( MediaStore.Images.Media.DATA );
+						if( cursor.moveToFirst() )
+						{
+							String columnValue = cursor.getString( column_index );
+							if( columnValue != null && columnValue.length() > 0 )
+								return columnValue;
+						}
 					}
 				}
 				catch( Exception e )
 				{
-					Log.e( "Unity", "Exception:", e );
-					context.getContentResolver().delete( uri, null, null );
 				}
-			}
-		}
-		else
-		{
-			File directory = new File( Environment.getExternalStoragePublicDirectory( Environment.DIRECTORY_DCIM ), directoryName );
-			directory.mkdirs();
-
-			File file;
-			int fileIndex = 1;
-			String filenameWithoutExtension = ( extension.length() > 0 && filename.length() > extension.length() ) ? filename.substring( 0, filename.length() - extension.length() - 1 ) : filename;
-			String newFilename = filename;
-			do
-			{
-				file = new File( directory, newFilename );
-				newFilename = filenameWithoutExtension + fileIndex++;
-				if( extension.length() > 0 )
-					newFilename += "." + extension;
-			} while( file.exists() );
-
-			try
-			{
-				if( WriteFileToStream( originalFile, new FileOutputStream( file ) ) )
+				finally
 				{
-					values.put( MediaStore.MediaColumns.DATA, file.getAbsolutePath() );
-					context.getContentResolver().insert( externalContentUri, values );
-
-					Log.d( "Unity", "Saved media to: " + file.getPath() );
-
-					// Refresh the Gallery
-					Intent mediaScanIntent = new Intent( Intent.ACTION_MEDIA_SCANNER_SCAN_FILE );
-					mediaScanIntent.setData( Uri.fromFile( file ) );
-					context.sendBroadcast( mediaScanIntent );
+					if( cursor != null )
+						cursor.close();
 				}
 			}
-			catch( Exception e )
-			{
-				Log.e( "Unity", "Exception:", e );
-			}
+			else if( "file".equalsIgnoreCase( uri.getScheme() ) )
+				return uri.getPath();
+
+			// File path couldn't be determined
+			return null;
+		}
+		catch( Exception e )
+		{
+			Log.e( "Unity", "Exception:", e );
+			return null;
 		}
 	}
 
-	private static boolean WriteFileToStream( File file, OutputStream out )
+	private static String GetSecondaryStoragePathFor( String localPath )
+	{
+		if( secondaryStoragePath == null )
+		{
+			String primaryPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+
+			// Try paths saved at system environments
+			// Credit: https://stackoverflow.com/a/32088396/2373034
+			String strSDCardPath = System.getenv( "SECONDARY_STORAGE" );
+			if( strSDCardPath == null || strSDCardPath.length() == 0 )
+				strSDCardPath = System.getenv( "EXTERNAL_SDCARD_STORAGE" );
+
+			if( strSDCardPath != null && strSDCardPath.length() > 0 )
+			{
+				if( !strSDCardPath.contains( ":" ) )
+					strSDCardPath += ":";
+
+				String[] externalPaths = strSDCardPath.split( ":" );
+				for( int i = 0; i < externalPaths.length; i++ )
+				{
+					String path = externalPaths[i];
+					if( path != null && path.length() > 0 )
+					{
+						File file = new File( path );
+						if( file.exists() && file.isDirectory() && file.canRead() && !file.getAbsolutePath().equalsIgnoreCase( primaryPath ) )
+						{
+							String absolutePath = file.getAbsolutePath() + File.separator + localPath;
+							if( new File( absolutePath ).exists() )
+							{
+								secondaryStoragePath = file.getAbsolutePath();
+								return absolutePath;
+							}
+						}
+					}
+				}
+			}
+
+			// Try most common possible paths
+			// Credit: https://gist.github.com/PauloLuan/4bcecc086095bce28e22
+			String[] possibleRoots = new String[] { "/storage", "/mnt", "/storage/removable",
+					"/removable", "/data", "/mnt/media_rw", "/mnt/sdcard0" };
+			for( String root : possibleRoots )
+			{
+				try
+				{
+					File fileList[] = new File( root ).listFiles();
+					for( File file : fileList )
+					{
+						if( file.exists() && file.isDirectory() && file.canRead() && !file.getAbsolutePath().equalsIgnoreCase( primaryPath ) )
+						{
+							String absolutePath = file.getAbsolutePath() + File.separator + localPath;
+							if( new File( absolutePath ).exists() )
+							{
+								secondaryStoragePath = file.getAbsolutePath();
+								return absolutePath;
+							}
+						}
+					}
+				}
+				catch( Exception e )
+				{
+				}
+			}
+
+			secondaryStoragePath = "_NulL_";
+		}
+		else if( !secondaryStoragePath.equals( "_NulL_" ) )
+			return secondaryStoragePath + File.separator + localPath;
+
+		return null;
+	}
+
+	public static boolean WriteFileToStream( File file, OutputStream out )
 	{
 		try
 		{
@@ -204,97 +237,6 @@ public class NativeGallery
 		return true;
 	}
 
-	public static void MediaDeleteFile( Context context, String path, int mediaType )
-	{
-		if( mediaType == 0 )
-			context.getContentResolver().delete( MediaStore.Images.Media.EXTERNAL_CONTENT_URI, MediaStore.Images.Media.DATA + "=?", new String[] { path } );
-		else if( mediaType == 1 )
-			context.getContentResolver().delete( MediaStore.Video.Media.EXTERNAL_CONTENT_URI, MediaStore.Video.Media.DATA + "=?", new String[] { path } );
-		else
-			context.getContentResolver().delete( MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, MediaStore.Audio.Media.DATA + "=?", new String[] { path } );
-	}
-
-	public static void PickMedia( Context context, final NativeGalleryMediaReceiver mediaReceiver, int mediaType, boolean selectMultiple, String savePath, String mime, String title )
-	{
-		if( CheckPermission( context, true ) != 1 )
-		{
-			if( !selectMultiple )
-				mediaReceiver.OnMediaReceived( "" );
-			else
-				mediaReceiver.OnMultipleMediaReceived( "" );
-
-			return;
-		}
-
-		Bundle bundle = new Bundle();
-		bundle.putInt( NativeGalleryMediaPickerFragment.MEDIA_TYPE_ID, mediaType );
-		bundle.putBoolean( NativeGalleryMediaPickerFragment.SELECT_MULTIPLE_ID, selectMultiple );
-		bundle.putString( NativeGalleryMediaPickerFragment.SAVE_PATH_ID, savePath );
-		bundle.putString( NativeGalleryMediaPickerFragment.MIME_ID, mime );
-		bundle.putString( NativeGalleryMediaPickerFragment.TITLE_ID, title );
-
-		final Fragment request = new NativeGalleryMediaPickerFragment( mediaReceiver );
-		request.setArguments( bundle );
-
-		( (Activity) context ).getFragmentManager().beginTransaction().add( 0, request ).commit();
-	}
-
-	@TargetApi( Build.VERSION_CODES.M )
-	public static int CheckPermission( Context context, final boolean readPermissionOnly )
-	{
-		if( Build.VERSION.SDK_INT < Build.VERSION_CODES.M )
-			return 1;
-
-		if( context.checkSelfPermission( Manifest.permission.READ_EXTERNAL_STORAGE ) == PackageManager.PERMISSION_GRANTED )
-		{
-			if( readPermissionOnly || context.checkSelfPermission( Manifest.permission.WRITE_EXTERNAL_STORAGE ) == PackageManager.PERMISSION_GRANTED )
-				return 1;
-		}
-
-		return 0;
-	}
-
-	// Credit: https://github.com/Over17/UnityAndroidPermissions/blob/0dca33e40628f1f279decb67d901fd444b409cd7/src/UnityAndroidPermissions/src/main/java/com/unity3d/plugin/UnityAndroidPermissions.java
-	public static void RequestPermission( Context context, final NativeGalleryPermissionReceiver permissionReceiver, final boolean readPermissionOnly, final int lastCheckResult )
-	{
-		if( CheckPermission( context, readPermissionOnly ) == 1 )
-		{
-			permissionReceiver.OnPermissionResult( 1 );
-			return;
-		}
-
-		if( lastCheckResult == 0 ) // If user clicked "Don't ask again" before, don't bother asking them again
-		{
-			permissionReceiver.OnPermissionResult( 0 );
-			return;
-		}
-
-		Bundle bundle = new Bundle();
-		bundle.putBoolean( NativeGalleryPermissionFragment.READ_PERMISSION_ONLY, readPermissionOnly );
-
-		final Fragment request = new NativeGalleryPermissionFragment( permissionReceiver );
-		request.setArguments( bundle );
-
-		( (Activity) context ).getFragmentManager().beginTransaction().add( 0, request ).commit();
-	}
-
-	// Credit: https://stackoverflow.com/a/35456817/2373034
-	public static void OpenSettings( Context context )
-	{
-		Uri uri = Uri.fromParts( "package", context.getPackageName(), null );
-
-		Intent intent = new Intent();
-		intent.setAction( Settings.ACTION_APPLICATION_DETAILS_SETTINGS );
-		intent.setData( uri );
-
-		context.startActivity( intent );
-	}
-
-	public static boolean CanSelectMultipleMedia()
-	{
-		return Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2;
-	}
-
 	private static BitmapFactory.Options GetImageMetadata( final String path )
 	{
 		try
@@ -313,7 +255,7 @@ public class NativeGallery
 	}
 
 	// Credit: https://stackoverflow.com/a/30572852/2373034
-	private static int GetImageOrientation( Context context, final String path )
+	public static int GetImageOrientation( Context context, final String path )
 	{
 		try
 		{
