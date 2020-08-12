@@ -129,3 +129,6 @@ NativeGallery.ImageProperties NativeGallery.GetImageProperties( string imagePath
 
 // Returns a VideoProperties instance that holds the width, height, duration (in milliseconds) and rotation information of a video file. To play a video in correct orientation, you should rotate it by rotation degrees clockwise. For a 90-degree or 270-degree rotated video, values of width and height should be swapped to get the display size of the video
 NativeGallery.VideoProperties NativeGallery.GetVideoProperties( string videoPath );
+
+// Returns the media type of the file at the specified path: Image, Video, Audio or neither of these (if media type can't be determined)
+NativeGallery.MediaType NativeGallery.GetMediaTypeOfFile( string path );

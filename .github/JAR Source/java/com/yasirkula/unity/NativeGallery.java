@@ -259,6 +259,15 @@ public class NativeGallery
 		return Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
 	}
 
+	public static String GetMimeTypeFromExtension( String extension )
+	{
+		if( extension == null || extension.length() == 0 )
+			return "";
+
+		String mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension( extension.toLowerCase( Locale.ENGLISH ) );
+		return mime != null ? mime : "";
+	}
+
 	public static String LoadImageAtPath( Context context, String path, final String temporaryFilePath, final int maxSize )
 	{
 		return NativeGalleryUtils.LoadImageAtPath( context, path, temporaryFilePath, maxSize );

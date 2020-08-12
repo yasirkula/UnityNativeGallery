@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <Photos/Photos.h>
 #import <MobileCoreServices/UTCoreTypes.h>
+#import <MobileCoreServices/MobileCoreServices.h>
 #import <ImageIO/ImageIO.h>
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < 80000
 #import <AssetsLibrary/AssetsLibrary.h>
@@ -20,6 +21,7 @@ extern UIViewController* UnityGetGLViewController();
 + (void)saveMedia:(NSString *)path albumName:(NSString *)album isImg:(BOOL)isImg;
 + (void)pickMedia:(int)mediaType savePath:(NSString *)mediaSavePath;
 + (int)isMediaPickerBusy;
++ (int)getMediaTypeFromExtension:(NSString *)extension;
 + (char *)getImageProperties:(NSString *)path;
 + (char *)getVideoProperties:(NSString *)path;
 + (char *)getVideoThumbnail:(NSString *)path savePath:(NSString *)savePath maximumSize:(int)maximumSize captureTime:(double)captureTime;
@@ -355,6 +357,27 @@ static int imagePickerState = 0; // 0 -> none, 1 -> showing (always in this stat
 	}
 	else
 		return 0;
+}
+
+// Credit: https://lists.apple.com/archives/cocoa-dev/2012/Jan/msg00052.html
++ (int)getMediaTypeFromExtension:(NSString *)extension {
+	CFStringRef fileUTI = UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, (__bridge CFStringRef) extension, NULL);
+	
+	// mediaType is a bitmask:
+	// 1: image
+	// 2: video
+	// 4: audio (not supported)
+	int result = 0;
+	if (UTTypeConformsTo(fileUTI, kUTTypeImage))
+		result = 1;
+	else if (UTTypeConformsTo(fileUTI, kUTTypeMovie) || UTTypeConformsTo(fileUTI, kUTTypeVideo))
+		result = 2;
+	else if (UTTypeConformsTo(fileUTI, kUTTypeAudio))
+		result = 4;
+	
+	CFRelease(fileUTI);
+	
+	return result;
 }
 
 // Credit: https://stackoverflow.com/a/4170099/2373034
@@ -767,6 +790,10 @@ extern "C" void _NativeGallery_PickMedia(const char* mediaSavePath, int mediaTyp
 
 extern "C" int _NativeGallery_IsMediaPickerBusy() {
 	return [UNativeGallery isMediaPickerBusy];
+}
+
+extern "C" int _NativeGallery_GetMediaTypeFromExtension(const char* extension) {
+	return [UNativeGallery getMediaTypeFromExtension:[NSString stringWithUTF8String:extension]];
 }
 
 extern "C" char* _NativeGallery_GetImageProperties(const char* path) {

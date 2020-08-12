@@ -94,6 +94,9 @@ public static class NativeGallery
 	private static extern void _NativeGallery_OpenSettings();
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
+	private static extern int _NativeGallery_GetMediaTypeFromExtension( string extension );
+
+	[System.Runtime.InteropServices.DllImport( "__Internal" )]
 	private static extern void _NativeGallery_ImageWriteToAlbum( string path, string album );
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
@@ -323,6 +326,42 @@ public static class NativeGallery
 		return NGMediaReceiveCallbackiOS.IsBusy;
 #else
 		return false;
+#endif
+	}
+
+	public static MediaType GetMediaTypeOfFile( string path )
+	{
+		if( string.IsNullOrEmpty( path ) )
+			return (MediaType) 0;
+
+		string extension = Path.GetExtension( path );
+		if( string.IsNullOrEmpty( extension ) )
+			return (MediaType) 0;
+
+		if( extension[0] == '.' )
+		{
+			if( extension.Length == 1 )
+				return (MediaType) 0;
+
+			extension = extension.Substring( 1 );
+		}
+
+#if !UNITY_EDITOR && UNITY_ANDROID
+		string mime = AJC.CallStatic<string>( "GetMimeTypeFromExtension", extension.ToLowerInvariant() );
+		if( string.IsNullOrEmpty( mime ) )
+			return (MediaType) 0;
+		else if( mime.StartsWith( "image/" ) )
+			return MediaType.Image;
+		else if( mime.StartsWith( "video/" ) )
+			return MediaType.Video;
+		else if( mime.StartsWith( "audio/" ) )
+			return MediaType.Audio;
+		else
+			return (MediaType) 0;
+#elif !UNITY_EDITOR && UNITY_IOS
+		return (MediaType) _NativeGallery_GetMediaTypeFromExtension( extension.ToLowerInvariant() );
+#else
+		return (MediaType) 0;
 #endif
 	}
 	#endregion
