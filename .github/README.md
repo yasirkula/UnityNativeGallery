@@ -138,9 +138,10 @@ Beginning with *6.0 Marshmallow*, Android apps must request runtime permissions 
 - **generateMipmaps** determines whether texture should have mipmaps or not
 - **linearColorSpace** determines whether texture should be in linear color space or sRGB color space
 
-`Texture2D NativeGallery.GetVideoThumbnail( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0 )`: creates a Texture2D thumbnail from a video file and returns it. Returns *null*, if something goes wrong.
+`Texture2D NativeGallery.GetVideoThumbnail( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true )`: creates a Texture2D thumbnail from a video file and returns it. Returns *null*, if something goes wrong.
 - **maxSize** determines the maximum size of the returned Texture2D in pixels. Larger thumbnails will be down-scaled. If untouched, its value will be set to *SystemInfo.maxTextureSize*. It is recommended to set a proper maxSize for better performance
 - **captureTimeInSeconds** determines the frame of the video that the thumbnail is captured from. If untouched, OS will decide this value
+- **markTextureNonReadable** (see *LoadImageAtPath*)
 
 ## EXAMPLE CODE
 
@@ -165,7 +166,7 @@ void Update()
 			// another media pick operation is already in progress
 			if( NativeGallery.IsMediaPickerBusy() )
 				return;
-				
+
 			if( Input.mousePosition.x < Screen.width * 2 / 3 )
 			{
 				// Pick a PNG image from Gallery/Photos
@@ -191,9 +192,9 @@ private IEnumerator TakeScreenshotAndSave()
 
 	// Save the screenshot to Gallery/Photos
 	NativeGallery.Permission permission = NativeGallery.SaveImageToGallery( ss, "GalleryTest", "Image.png", ( success, path ) => Debug.Log( "Media save result: " + success + " " + path ) );
-	
+
 	Debug.Log( "Permission result: " + permission );
-	
+
 	// To avoid memory leaks
 	Destroy( ss );
 }
@@ -218,13 +219,13 @@ private void PickImage( int maxSize )
 			quad.transform.position = Camera.main.transform.position + Camera.main.transform.forward * 2.5f;
 			quad.transform.forward = Camera.main.transform.forward;
 			quad.transform.localScale = new Vector3( 1f, texture.height / (float) texture.width, 1f );
-			
+
 			Material material = quad.GetComponent<Renderer>().material;
 			if( !material.shader.isSupported ) // happens when Standard shader is not included in the build
 				material.shader = Shader.Find( "Legacy Shaders/Diffuse" );
 
 			material.mainTexture = texture;
-				
+
 			Destroy( quad, 5f );
 
 			// If a procedural texture is not destroyed manually, 
@@ -259,6 +260,16 @@ private void PickImageOrVideo()
 		NativeGallery.Permission permission = NativeGallery.GetMixedMediaFromGallery( ( path ) =>
 		{
 			Debug.Log( "Media path: " + path );
+			if( path != null )
+			{
+				// Determine if user has picked an image, video or neither of these
+				switch( NativeGallery.GetMediaTypeOfFile( path ) )
+				{
+					case NativeGallery.MediaType.Image: Debug.Log( "Picked image" ); break;
+					case NativeGallery.MediaType.Video: Debug.Log( "Picked video" ); break;
+					default: Debug.Log( "Probably picked something else" ); break;
+				}
+			}
 		}, NativeGallery.MediaType.Image | NativeGallery.MediaType.Video, "Select an image or video" );
 
 		Debug.Log( "Permission result: " + permission );

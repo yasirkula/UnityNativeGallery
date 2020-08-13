@@ -122,7 +122,8 @@ Texture2D NativeGallery.LoadImageAtPath( string imagePath, int maxSize = -1, boo
 // Creates a Texture2D thumbnail from a video file and returns it. Returns null, if something goes wrong
 // maxSize: determines the maximum size of the returned Texture2D in pixels. Larger thumbnails will be down-scaled. If untouched, its value will be set to SystemInfo.maxTextureSize. It is recommended to set a proper maxSize for better performance
 // captureTimeInSeconds: determines the frame of the video that the thumbnail is captured from. If untouched, OS will decide this value
-Texture2D NativeGallery.GetVideoThumbnail( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0 );
+// markTextureNonReadable: see LoadImageAtPath
+Texture2D NativeGallery.GetVideoThumbnail( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true );
 
 // Returns an ImageProperties instance that holds the width, height and mime type information of an image file without creating a Texture2D object. Mime type will be null, if it can't be determined
 NativeGallery.ImageProperties NativeGallery.GetImageProperties( string imagePath );
