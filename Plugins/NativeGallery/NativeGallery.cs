@@ -674,7 +674,7 @@ public static class NativeGallery
 		return result;
 	}
 
-	public static Texture2D GetVideoThumbnail( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0 )
+	public static Texture2D GetVideoThumbnail( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true )
 	{
 		if( maxSize <= 0 )
 			maxSize = SystemInfo.maxTextureSize;
@@ -688,7 +688,7 @@ public static class NativeGallery
 #endif
 
 		if( !string.IsNullOrEmpty( thumbnailPath ) )
-			return LoadImageAtPath( thumbnailPath, maxSize );
+			return LoadImageAtPath( thumbnailPath, maxSize, markTextureNonReadable );
 		else
 			return null;
 	}
