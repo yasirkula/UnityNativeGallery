@@ -68,7 +68,7 @@ namespace NativeGalleryNamespace
 			}
 			finally
 			{
-				Object.Destroy( callbackHelper );
+				Object.Destroy( callbackHelper.gameObject );
 			}
 		}
 
@@ -84,7 +84,7 @@ namespace NativeGalleryNamespace
 			}
 			finally
 			{
-				Object.Destroy( callbackHelper );
+				Object.Destroy( callbackHelper.gameObject );
 			}
 		}
 	}
