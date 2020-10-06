@@ -20,6 +20,8 @@ import android.webkit.MimeTypeMap;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Locale;
 
 /**
@@ -95,28 +97,57 @@ public class NativeGallery
 		{
 			values.put( MediaStore.MediaColumns.RELATIVE_PATH, "DCIM/" + directoryName );
 			values.put( MediaStore.MediaColumns.DATE_TAKEN, System.currentTimeMillis() );
-			values.put( MediaStore.MediaColumns.IS_PENDING, true );
 
-			Uri uri = context.getContentResolver().insert( externalContentUri, values );
-			if( uri != null )
+			// While using MediaStore to save media, filename collisions are automatically handled by the OS.
+			// However, there is a hard limit of 32 collisions: https://android.googlesource.com/platform/frameworks/base/+/oreo-release/core/java/android/os/FileUtils.java#618
+			// When that limit is reached, an "IllegalStateException: Failed to build unique file" exception is thrown.
+			// If that happens, we'll have a fallback scenario (i == 1 below). In this scenario, we'll simply add a
+			// timestamp to the filename
+			for( int i = 0; i < 2; i++ )
 			{
-				try
+				values.put( MediaStore.MediaColumns.IS_PENDING, true );
+
+				if( i == 1 )
 				{
-					if( NativeGalleryUtils.WriteFileToStream( originalFile, context.getContentResolver().openOutputStream( uri ) ) )
-					{
-						values.put( MediaStore.MediaColumns.IS_PENDING, false );
-						context.getContentResolver().update( uri, values, null, null );
+					String filenameWithoutExtension = ( extension.length() > 0 && filename.length() > extension.length() ) ? filename.substring( 0, filename.length() - extension.length() - 1 ) : filename;
+					String newFilename = filenameWithoutExtension + " " + new SimpleDateFormat( "yyyy-MM-dd'T'HH.mm.ss" ).format( new Date() ); // ISO 8601 standard
+					if( extension.length() > 0 )
+						newFilename += "." + extension;
 
-						Log.d( "Unity", "Saved media to: " + uri.toString() );
-
-						String path = NativeGalleryUtils.GetPathFromURI( context, uri );
-						return path != null && path.length() > 0 ? path : uri.toString();
-					}
+					values.put( MediaStore.MediaColumns.TITLE, newFilename );
+					values.put( MediaStore.MediaColumns.DISPLAY_NAME, newFilename );
 				}
-				catch( Exception e )
+
+				Uri uri = context.getContentResolver().insert( externalContentUri, values );
+				if( uri != null )
 				{
-					Log.e( "Unity", "Exception:", e );
-					context.getContentResolver().delete( uri, null, null );
+					try
+					{
+						if( NativeGalleryUtils.WriteFileToStream( originalFile, context.getContentResolver().openOutputStream( uri ) ) )
+						{
+							values.put( MediaStore.MediaColumns.IS_PENDING, false );
+							context.getContentResolver().update( uri, values, null, null );
+
+							Log.d( "Unity", "Saved media to: " + uri.toString() );
+
+							String path = NativeGalleryUtils.GetPathFromURI( context, uri );
+							return path != null && path.length() > 0 ? path : uri.toString();
+						}
+					}
+					catch( IllegalStateException e )
+					{
+						if( i == 1 )
+							Log.e( "Unity", "Exception:", e );
+
+						context.getContentResolver().delete( uri, null, null );
+					}
+					catch( Exception e )
+					{
+						Log.e( "Unity", "Exception:", e );
+						context.getContentResolver().delete( uri, null, null );
+
+						return "";
+					}
 				}
 			}
 		}
@@ -199,14 +230,18 @@ public class NativeGallery
 	}
 
 	@TargetApi( Build.VERSION_CODES.M )
-	public static int CheckPermission( Context context, final boolean readPermissionOnly )
+	public static int CheckPermission( Context context, final boolean readPermission )
 	{
 		if( Build.VERSION.SDK_INT < Build.VERSION_CODES.M )
 			return 1;
 
+		// On Android 10 and later, saving to Gallery doesn't require any permissions
+		if( !readPermission && android.os.Build.VERSION.SDK_INT >= 29 )
+			return 1;
+
 		if( context.checkSelfPermission( Manifest.permission.READ_EXTERNAL_STORAGE ) == PackageManager.PERMISSION_GRANTED )
 		{
-			if( readPermissionOnly || context.checkSelfPermission( Manifest.permission.WRITE_EXTERNAL_STORAGE ) == PackageManager.PERMISSION_GRANTED )
+			if( readPermission || context.checkSelfPermission( Manifest.permission.WRITE_EXTERNAL_STORAGE ) == PackageManager.PERMISSION_GRANTED )
 				return 1;
 		}
 
@@ -214,9 +249,9 @@ public class NativeGallery
 	}
 
 	// Credit: https://github.com/Over17/UnityAndroidPermissions/blob/0dca33e40628f1f279decb67d901fd444b409cd7/src/UnityAndroidPermissions/src/main/java/com/unity3d/plugin/UnityAndroidPermissions.java
-	public static void RequestPermission( Context context, final NativeGalleryPermissionReceiver permissionReceiver, final boolean readPermissionOnly, final int lastCheckResult )
+	public static void RequestPermission( Context context, final NativeGalleryPermissionReceiver permissionReceiver, final boolean readPermission, final int lastCheckResult )
 	{
-		if( CheckPermission( context, readPermissionOnly ) == 1 )
+		if( CheckPermission( context, readPermission ) == 1 )
 		{
 			permissionReceiver.OnPermissionResult( 1 );
 			return;
@@ -229,7 +264,7 @@ public class NativeGallery
 		}
 
 		Bundle bundle = new Bundle();
-		bundle.putBoolean( NativeGalleryPermissionFragment.READ_PERMISSION_ONLY, readPermissionOnly );
+		bundle.putBoolean( NativeGalleryPermissionFragment.READ_PERMISSION_ONLY, readPermission );
 
 		final Fragment request = new NativeGalleryPermissionFragment( permissionReceiver );
 		request.setArguments( bundle );

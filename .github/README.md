@@ -22,7 +22,7 @@ There are 5 ways to install this plugin:
 
 ### Android Setup
 
-Set **Write Permission** to **External (SDCard)** in **Player Settings**. Alternatively, if your app won't be saving media to the Gallery but instead just reading media from it, you can add `READ_EXTERNAL_STORAGE` permission to your AndroidManifest.
+Set **Write Permission** to **External (SDCard)** in **Player Settings**. You can skip this step if your app won't be saving media to the Gallery but instead just reading media from it.
 
 ### iOS Setup
 
@@ -30,7 +30,7 @@ There are two ways to set up the plugin on iOS:
 
 **a. Automated Setup for iOS**
 
-- *(optional)* change the value of **PHOTO_LIBRARY_USAGE_DESCRIPTION** in *Plugins/NativeGallery/Editor/NGPostProcessBuild.cs*
+- *(optional)* change the value of **PHOTO_LIBRARY_USAGE_DESCRIPTION** and **PHOTO_LIBRARY_ADDITIONS_USAGE_DESCRIPTION** in *Plugins/NativeGallery/Editor/NGPostProcessBuild.cs*
 - *(Unity 2017.4 or earlier)* if your minimum *Deployment Target* (iOS Version) is at least 8.0, set the value of **MINIMUM_TARGET_8_OR_ABOVE** to *true* in *NGPostProcessBuild.cs*
 
 **b. Manual Setup for iOS**
@@ -39,9 +39,9 @@ There are two ways to set up the plugin on iOS:
 
 ## FAQ
 
-- **How can I fetch the path of the saved image or the original path of the picked image?**
+- **How can I fetch the path of the saved image or the original path of the picked image on iOS?**
 
-You can't. On iOS, these files are stored in an internal directory that we have no access to (I don't think there is even a way to fetch that internal path). On Android, with Storage Access Framework, the absolute path is hidden behind the SAF-layer. There are some tricks here and there to convert SAF-path to absolute path but they don't work in all cases (most of the snippets that can be found on Stackoverflow can't return the absolute path if the file is stored on external SD card).
+You can't. On iOS, these files are stored in an internal directory that we have no access to (I don't think there is even a way to fetch that internal path).
 
 - **Can't access the Gallery, it says "java.lang.ClassNotFoundException: com.yasirkula.unity.NativeGallery" in Logcat**
 
@@ -64,7 +64,7 @@ Make sure that the *filename* parameter of the Save function includes the file's
 ### A. Saving Media To Gallery/Photos
 
 `NativeGallery.SaveImageToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null )`: use this function if you have the raw bytes of the image. 
-- On Android, your images are saved at **DCIM/album/filename**. On iOS, the image will be saved in the corresponding album. Make sure that the *filename* parameter includes the file's extension, as well
+- On Android, your images/videos are saved at **DCIM/album/filename**. On iOS 14+, the image/video will be saved to the default Photos album (i.e. *album* parameter will be ignored). On earlier iOS versions, the image/video will be saved to the target album. Make sure that the *filename* parameter includes the file's extension, as well
 - **MediaSaveCallback** takes `bool success` and `string path` parameters. If the image/video is saved successfully, *success* becomes *true*. On Android, *path* stores where the image/video was saved to (is *null* on iOS). If the raw filepath can't be determined, an abstract Storage Access Framework path will be returned (*File.Exists* returns *false* for that path)
 
 **IMPORTANT:** NativeGallery will never overwrite existing media on the Gallery. If there is a name conflict, NativeGallery will ensure a unique filename. So don't put `{0}` in *filename* anymore (for new users, putting {0} in filename was recommended in order to ensure unique filenames in earlier versions, this is no longer necessary).
@@ -91,7 +91,7 @@ Make sure that the *filename* parameter of the Save function includes the file's
 `NativeGallery.GetMixedMediaFromGallery( MediaPickCallback callback, MediaType mediaTypes, string title = "" )`: prompts the user to select an image/video/audio file. This function is available on Android 19 and later and all iOS versions. Selecting audio files is not supported on iOS. 
 - **mediaTypes** is the bitwise OR'ed media types that will be displayed in the file picker dialog (e.g. to pick an image or video, use `MediaType.Image | MediaType.Video`)
 
-`NativeGallery.GetImagesFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "image/*" )`: prompts the user to select one or more images from Gallery/Photos. **MediaPickMultipleCallback** takes a *string[]* parameter which stores the path(s) of the selected image(s)/video(s), or *null* if nothing is selected. Selecting multiple files from gallery is only available on *Android 18* and later (iOS not supported). Call *CanSelectMultipleFilesFromGallery()* to see if this feature is available.
+`NativeGallery.GetImagesFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "image/*" )`: prompts the user to select one or more images from Gallery/Photos. **MediaPickMultipleCallback** takes a *string[]* parameter which stores the path(s) of the selected image(s)/video(s), or *null* if nothing is selected. Selecting multiple files from gallery is only available on *Android 18* and later and *iOS 14* and later. Call *CanSelectMultipleFilesFromGallery()* to see if this feature is available.
 
 `NativeGallery.GetVideosFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "video/*" )`: prompts the user to select one or more videos from Gallery/Photos. This function works similar to its *GetImagesFromGallery* equivalent.
 
@@ -111,14 +111,14 @@ Almost all of these functions return a *NativeGallery.Permission* value. More de
 
 Beginning with *6.0 Marshmallow*, Android apps must request runtime permissions before accessing certain services, similar to iOS. There are two functions to handle permissions with this plugin:
 
-`NativeGallery.Permission NativeGallery.CheckPermission()`: checks whether the app has access to Gallery/Photos or not.
+`NativeGallery.Permission NativeGallery.CheckPermission( PermissionType permissionType )`: checks whether the app has access to Gallery/Photos or not. **PermissionType** can be either **Read** (for *GetImageFromGallery/GetVideoFromGallery* functions) or **Write** (for *SaveImageToGallery/SaveVideoToGallery* functions).
 
 **NativeGallery.Permission** is an enum that can take 3 values: 
 - **Granted**: we have the permission to access Gallery/Photos
 - **ShouldAsk**: we don't have permission yet, but we can ask the user for permission via *RequestPermission* function (see below). On Android, as long as the user doesn't select "Don't ask again" while denying the permission, ShouldAsk is returned
 - **Denied**: we don't have permission and we can't ask the user for permission. In this case, user has to give the permission from Settings. This happens when user denies the permission on iOS (can't request permission again on iOS), when user selects "Don't ask again" while denying the permission on Android or when user is not allowed to give that permission (parental controls etc.)
 
-`NativeGallery.Permission NativeGallery.RequestPermission()`: requests permission to access Gallery/Photos from the user and returns the result. It is recommended to show a brief explanation before asking the permission so that user understands why the permission is needed and doesn't click Deny or worse, "Don't ask again". Note that the SaveImageToGallery/SaveVideoToGallery and GetImageFromGallery/GetVideoFromGallery functions call RequestPermission internally and execute only if the permission is granted (the result of RequestPermission is also returned).
+`NativeGallery.Permission NativeGallery.RequestPermission( PermissionType permissionType )`: requests permission to access Gallery/Photos from the user and returns the result. It is recommended to show a brief explanation before asking the permission so that user understands why the permission is needed and doesn't click Deny or worse, "Don't ask again". Note that the SaveImageToGallery/SaveVideoToGallery and GetImageFromGallery/GetVideoFromGallery functions call RequestPermission internally and execute only if the permission is granted (the result of RequestPermission is also returned).
 
 `NativeGallery.OpenSettings()`: opens the settings for this app, from where the user can manually grant permission in case current permission state is *Permission.Denied* (on Android, the necessary permission is named *Storage* and on iOS, the necessary permission is named *Photos*).
 

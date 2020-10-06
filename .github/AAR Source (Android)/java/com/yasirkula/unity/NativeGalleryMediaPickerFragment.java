@@ -154,10 +154,6 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 
 		Log.d( "Unity", "Selected media uri: " + uri.toString() );
 
-		// Android 10 restricts our access to the raw filesystem, copy the file to an accessible temporary location
-		if( android.os.Build.VERSION.SDK_INT >= 29 && !Environment.isExternalStorageLegacy() )
-			return copyToTempFile( uri );
-
 		String path = NativeGalleryUtils.GetPathFromURI( getActivity(), uri );
 		if( path != null && path.length() > 0 )
 		{

@@ -13,7 +13,7 @@ for Android: set "Write Permission" to "External (SDCard)" in Player Settings
 for iOS: there are two ways to set up the plugin on iOS:
 
 a. Automated Setup for iOS
-- (optional) change the value of PHOTO_LIBRARY_USAGE_DESCRIPTION in Plugins/NativeGallery/Editor/NGPostProcessBuild.cs
+- (optional) change the values of PHOTO_LIBRARY_USAGE_DESCRIPTION and PHOTO_LIBRARY_ADDITIONS_USAGE_DESCRIPTION in Plugins/NativeGallery/Editor/NGPostProcessBuild.cs
 - (Unity 2017.4 or earlier) if your minimum Deployment Target (iOS Version) is at least 8.0, set the value of MINIMUM_TARGET_8_OR_ABOVE to true in NGPostProcessBuild.cs
 
 b. Manual Setup for iOS
@@ -21,13 +21,14 @@ b. Manual Setup for iOS
 - build your project
 - enter a Photo Library Usage Description to Info.plist in Xcode
 - also enter a "Photo Library Additions Usage Description" to Info.plist in Xcode, if exists
-- insert "-weak_framework Photos -framework AssetsLibrary -framework MobileCoreServices -framework ImageIO" to the "Other Linker Flags" of Unity-iPhone Target (if your Deployment Target is at least 8.0, it is sufficient to insert "-framework Photos -framework MobileCoreServices -framework ImageIO")
-- lastly, remove Photos.framework from Link Binary With Libraries of Unity-iPhone Target in Build Phases, if exists
+- set Info.plist's "Prevent limited photos access alert" property's value to 1 in Xcode, if exists
+- insert "-weak_framework PhotosUI -weak_framework Photos -framework AssetsLibrary -framework MobileCoreServices -framework ImageIO" to the "Other Linker Flags" of Unity-iPhone Target (if your Deployment Target is at least 8.0, it is sufficient to insert "-weak_framework PhotosUI -framework Photos -framework MobileCoreServices -framework ImageIO")
+- lastly, remove Photos.framework and PhotosUI.framework from Link Binary With Libraries of Unity-iPhone Target in Build Phases, if exists
 
 
 3. FAQ
-- How can I fetch the path of the saved image or the original path of the picked image?
-You can't. On iOS, these files are stored in an internal directory that we have no access to (I don't think there is even a way to fetch that internal path). On Android, with Storage Access Framework, the absolute path is hidden behind the SAF-layer. There are some tricks here and there to convert SAF-path to absolute path but they don't work in all cases (most of the snippets that can be found on Stackoverflow can't return the absolute path if the file is stored on external SD card).
+- How can I fetch the path of the saved image or the original path of the picked image on iOS?
+You can't. On iOS, these files are stored in an internal directory that we have no access to (I don't think there is even a way to fetch that internal path).
 
 - Can't access the Gallery, it says "java.lang.ClassNotFoundException: com.yasirkula.unity.NativeGallery" in Logcat
 If your project uses ProGuard, try adding the following line to ProGuard filters: -keep class com.yasirkula.unity.* { *; }
@@ -46,6 +47,7 @@ Make sure that the "filename" parameter of the Save function includes the file's
 4. SCRIPTING API
 Please see the online documentation for a more in-depth documentation of the Scripting API: https://github.com/yasirkula/UnityNativeGallery
 
+enum NativeGallery.PermissionType { Read = 0, Write = 1 };
 enum NativeGallery.Permission { Denied = 0, Granted = 1, ShouldAsk = 2 };
 enum NativeGallery.ImageOrientation { Unknown = -1, Normal = 0, Rotate90 = 1, Rotate180 = 2, Rotate270 = 3, FlipHorizontal = 4, Transpose = 5, FlipVertical = 6, Transverse = 7 }; // EXIF orientation: http://sylvana.net/jpegcrop/exif_orientation.html (indices are reordered)
 enum MediaType { Image = 1, Video = 2, Audio = 4 };
@@ -56,7 +58,7 @@ delegate void MediaPickMultipleCallback( string[] paths );
 
 //// Saving Media To Gallery/Photos ////
 
-// On Android, your images are saved at DCIM/album/filename. On iOS, the image will be saved in the corresponding album.
+// On Android, your images/videos are saved at DCIM/album/filename. On iOS 14+, the image/video will be saved to the default Photos album (i.e. album parameter will be ignored). On earlier iOS versions, the image/video will be saved to the target album.
 // NOTE: Make sure that the filename parameter includes the file's extension, as well
 // IMPORTANT: NativeGallery will never overwrite existing media on the Gallery. If there is a name conflict, NativeGallery will ensure a unique filename. So don't put '{0}' in filename anymore (for new users, putting {0} in filename was recommended in order to ensure unique filenames in earlier versions, this is no longer necessary).
 // MediaSaveCallback takes "bool success" and "string path" parameters. If the image/video is saved successfully, success becomes true. On Android, path stores where the image/video was saved to (is null on iOS). If the raw filepath can't be determined, an abstract Storage Access Framework path will be returned (File.Exists returns false for that path)
@@ -89,7 +91,7 @@ NativeGallery.Permission NativeGallery.GetMixedMediaFromGallery( MediaPickCallba
 NativeGallery.Permission NativeGallery.GetMixedMediasFromGallery( MediaPickMultipleCallback callback, MediaType mediaTypes, string title = "" );
 
 
-// Returns true if selecting multiple images/videos from Gallery/Photos is possible on this device (only available on Android 18 and later; iOS not supported)
+// Returns true if selecting multiple images/videos from Gallery/Photos is possible on this device (only available on Android 18 and later and iOS 14 and later)
 bool NativeGallery.CanSelectMultipleFilesFromGallery();
 
 // Returns true if GetMixedMediaFromGallery/GetMixedMediasFromGallery functions are supported (available on Android 19 and later and all iOS versions)
@@ -102,8 +104,8 @@ bool NativeGallery.IsMediaPickerBusy();
 //// Runtime Permissions ////
 
 // Interacting with Gallery/Photos is only possible when permission state is Permission.Granted. Most of the functions request permission internally (and return the result) but you can also check/request the permissions manually
-NativeGallery.Permission NativeGallery.CheckPermission();
-NativeGallery.Permission NativeGallery.RequestPermission();
+NativeGallery.Permission NativeGallery.CheckPermission( PermissionType permissionType );
+NativeGallery.Permission NativeGallery.RequestPermission( PermissionType permissionType );
 
 // If permission state is Permission.Denied, user must grant the necessary permission (Storage on Android and Photos on iOS) manually from the Settings. These functions help you open the Settings directly from within the app
 void NativeGallery.OpenSettings();
