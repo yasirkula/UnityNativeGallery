@@ -563,7 +563,7 @@ static BOOL pickingMultipleFiles = NO;
 			config.filter = [PHPickerFilter anyFilterMatchingSubfilters:[NSArray arrayWithObjects:[PHPickerFilter imagesFilter], [PHPickerFilter livePhotosFilter], [PHPickerFilter videosFilter], nil]];
 		
 		imagePickerNew = [[PHPickerViewController alloc] initWithConfiguration:config];
-		imagePickerNew.delegate = self;
+		imagePickerNew.delegate = (id) self;
 		[UnityGetGLViewController() presentViewController:imagePickerNew animated:YES completion:^{ imagePickerState = 0; }];
 	}
 	else
@@ -571,7 +571,7 @@ static BOOL pickingMultipleFiles = NO;
 	{
 		// UIImagePickerController is used on previous versions
 		imagePicker = [[UIImagePickerController alloc] init];
-		imagePicker.delegate = self;
+		imagePicker.delegate = (id) self;
 		imagePicker.allowsEditing = NO;
 		imagePicker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
 		
@@ -612,7 +612,7 @@ static BOOL pickingMultipleFiles = NO;
 		{
 			// iPad
 			popup = [[UIPopoverController alloc] initWithContentViewController:imagePicker];
-			popup.delegate = self;
+			popup.delegate = (id) self;
 			[popup presentPopoverFromRect:CGRectMake( rootViewController.view.frame.size.width / 2, rootViewController.view.frame.size.height / 2, 1, 1 ) inView:rootViewController.view permittedArrowDirections:0 animated:YES];
 		}
 	}
