@@ -109,7 +109,9 @@ Almost all of these functions return a *NativeGallery.Permission* value. More de
 
 ### C. Runtime Permissions
 
-Beginning with *6.0 Marshmallow*, Android apps must request runtime permissions before accessing certain services, similar to iOS. There are two functions to handle permissions with this plugin:
+Beginning with *6.0 Marshmallow*, Android apps must request runtime permissions before accessing certain services, similar to iOS. Note that NativeGallery doesn't require any permissions for picking images/videos from Photos on iOS 11+ and saving images/videos to Gallery on Android 29+, so no permission dialog will be shown in these cases and the permission functions will return *Permission.Granted*.
+
+There are two functions to handle permissions with this plugin:
 
 `NativeGallery.Permission NativeGallery.CheckPermission( PermissionType permissionType )`: checks whether the app has access to Gallery/Photos or not. **PermissionType** can be either **Read** (for *GetImageFromGallery/GetVideoFromGallery* functions) or **Write** (for *SaveImageToGallery/SaveVideoToGallery* functions).
 

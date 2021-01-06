@@ -2,4 +2,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools" package="com.yasirkula.unity">
 	<uses-sdk android:targetSdkVersion="4" />
 	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="replace" />
+	<application android:requestLegacyExternalStorage="true" />
 </manifest>

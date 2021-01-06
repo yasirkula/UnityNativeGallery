@@ -42,7 +42,7 @@ public static class NativeGallery
 
 	public enum PermissionType { Read = 0, Write = 1 };
 	public enum Permission { Denied = 0, Granted = 1, ShouldAsk = 2 };
-	
+
 	[Flags]
 	public enum MediaType { Image = 1, Video = 2, Audio = 4 };
 
