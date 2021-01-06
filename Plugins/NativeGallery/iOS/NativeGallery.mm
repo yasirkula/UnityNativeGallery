@@ -890,7 +890,7 @@ static BOOL pickingMultipleFiles = NO;
 										NSLog( @"Error generating UIImage from picked image: %@", error );
 									
 									[arrayLock lock];
-									[resultPaths addObject:resultPath];
+									[resultPaths addObject:( resultPath != nil ? resultPath : @"" )];
 									[arrayLock unlock];
 									
 									dispatch_group_leave( group );
@@ -933,7 +933,7 @@ static BOOL pickingMultipleFiles = NO;
 							NSLog( @"Error generating UIImage from picked live photo: %@", error );
 						
 						[arrayLock lock];
-						[resultPaths addObject:resultPath];
+						[resultPaths addObject:( resultPath != nil ? resultPath : @"" )];
 						[arrayLock unlock];
 						
 						dispatch_group_leave( group );
@@ -988,7 +988,7 @@ static BOOL pickingMultipleFiles = NO;
 									}
 									
 									[arrayLock lock];
-									[resultPaths addObject:resultPath];
+									[resultPaths addObject:( resultPath != nil ? resultPath : @"" )];
 									[arrayLock unlock];
 									
 									dispatch_group_leave( group );
@@ -1051,7 +1051,7 @@ static BOOL pickingMultipleFiles = NO;
 						NSLog( @"Error getting the picked video's path: %@", error );
 					
 					[arrayLock lock];
-					[resultPaths addObject:resultPath];
+					[resultPaths addObject:( resultPath != nil ? resultPath : @"" )];
 					[arrayLock unlock];
 					
 					dispatch_group_leave( group );
