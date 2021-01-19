@@ -47,6 +47,10 @@ You can't. On iOS, these files are stored in an internal directory that we have 
 
 If your project uses ProGuard, try adding the following line to ProGuard filters: `-keep class com.yasirkula.unity.* { *; }`
 
+- **Android build fails, it says "error: attribute android:requestLegacyExternalStorage not found" in Console**
+
+`android:requestLegacyExternalStorage` attribute in _AndroidManifest.xml_ fixes a rare UnauthorizedAccessException on Android 10 but requires you to update your Android SDK to at least **SDK 29**. If this isn't possible for you, you should open *NativeGallery.aar* with WinRAR or 7-Zip and then remove the `<application ... />` tag from _AndroidManifest.xml_.
+
 - **Nothing happens when I try to access the Gallery on Android**
 
 Make sure that you've set the **Write Permission** to **External (SDCard)** in *Player Settings*.
