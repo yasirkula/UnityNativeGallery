@@ -30,6 +30,9 @@ b. Manual Setup for iOS
 - How can I fetch the path of the saved image or the original path of the picked image on iOS?
 You can't. On iOS, these files are stored in an internal directory that we have no access to (I don't think there is even a way to fetch that internal path).
 
+- Android build fails, it says "error: attribute android:requestLegacyExternalStorage not found" in Console
+"android:requestLegacyExternalStorage" attribute in AndroidManifest.xml fixes a rare UnauthorizedAccessException on Android 10 but requires you to update your Android SDK to at least SDK 29. If this isn't possible for you, you should open NativeGallery.aar with WinRAR or 7-Zip and then remove the "<application ... />" tag from AndroidManifest.xml.
+
 - Can't access the Gallery, it says "java.lang.ClassNotFoundException: com.yasirkula.unity.NativeGallery" in Logcat
 If your project uses ProGuard, try adding the following line to ProGuard filters: -keep class com.yasirkula.unity.* { *; }
 
