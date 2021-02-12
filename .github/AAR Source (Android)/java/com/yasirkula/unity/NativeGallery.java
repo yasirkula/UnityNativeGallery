@@ -4,10 +4,13 @@ import android.Manifest;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.Fragment;
+import android.app.RemoteAction;
+import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Build;
@@ -33,6 +36,9 @@ public class NativeGallery
 	public static final int MEDIA_TYPE_IMAGE = 1;
 	public static final int MEDIA_TYPE_VIDEO = 2;
 	public static final int MEDIA_TYPE_AUDIO = 4;
+
+	public static boolean overwriteExistingMedia = false;
+	public static boolean mediaSaveOmitDCIM = false; // If set to true, 'directoryName' on Android 29+ must start with either "DCIM/" or ["Pictures/", "Videos/", "Audio/"]
 
 	public static String SaveMedia( Context context, int mediaType, String filePath, String directoryName )
 	{
@@ -95,7 +101,7 @@ public class NativeGallery
 		// Android 10 restricts our access to the raw filesystem, use MediaStore to save media in that case
 		if( android.os.Build.VERSION.SDK_INT >= 29 )
 		{
-			values.put( MediaStore.MediaColumns.RELATIVE_PATH, "DCIM/" + directoryName );
+			values.put( MediaStore.MediaColumns.RELATIVE_PATH, mediaSaveOmitDCIM ? ( directoryName + "/" ) : ( "DCIM/" + directoryName + "/" ) );
 			values.put( MediaStore.MediaColumns.DATE_TAKEN, System.currentTimeMillis() );
 
 			// While using MediaStore to save media, filename collisions are automatically handled by the OS.
@@ -118,7 +124,37 @@ public class NativeGallery
 					values.put( MediaStore.MediaColumns.DISPLAY_NAME, newFilename );
 				}
 
-				Uri uri = context.getContentResolver().insert( externalContentUri, values );
+				Uri uri = null;
+				if( !overwriteExistingMedia )
+					uri = context.getContentResolver().insert( externalContentUri, values );
+				else
+				{
+					Cursor cursor = null;
+					try
+					{
+						String selection = MediaStore.MediaColumns.RELATIVE_PATH + "=? AND " + MediaStore.MediaColumns.DISPLAY_NAME + "=?";
+						String[] selectionArgs = new String[] { values.getAsString( MediaStore.MediaColumns.RELATIVE_PATH ), values.getAsString( MediaStore.MediaColumns.DISPLAY_NAME ) };
+						cursor = context.getContentResolver().query( externalContentUri, new String[] { "_id" }, selection, selectionArgs, null );
+						if( cursor != null && cursor.moveToFirst() )
+						{
+							uri = ContentUris.withAppendedId( externalContentUri, cursor.getLong( cursor.getColumnIndex( "_id" ) ) );
+							Log.d( "Unity", "Overwriting existing media" );
+						}
+					}
+					catch( Exception e )
+					{
+						Log.e( "Unity", "Couldn't overwrite existing media's metadata:", e );
+					}
+					finally
+					{
+						if( cursor != null )
+							cursor.close();
+					}
+
+					if( uri == null )
+						uri = context.getContentResolver().insert( externalContentUri, values );
+				}
+
 				if( uri != null )
 				{
 					try
@@ -144,16 +180,38 @@ public class NativeGallery
 					catch( Exception e )
 					{
 						Log.e( "Unity", "Exception:", e );
-						context.getContentResolver().delete( uri, null, null );
 
+						// Not strongly-typing RecoverableSecurityException here because Android Studio warns that
+						// it would result in a crash on Android 18 or earlier
+						if( overwriteExistingMedia && e.getClass().getName().equals( "android.app.RecoverableSecurityException" ) )
+						{
+							try
+							{
+								RemoteAction remoteAction = (RemoteAction) e.getClass().getMethod( "getUserAction" ).invoke( e );
+								context.startIntentSender( remoteAction.getActionIntent().getIntentSender(), null, 0, 0, 0 );
+							}
+							catch( Exception e2 )
+							{
+								Log.e( "Unity", "RecoverableSecurityException failure:", e2 );
+								return "";
+							}
+
+							String path = NativeGalleryUtils.GetPathFromURI( context, uri );
+							return path != null && path.length() > 0 ? path : uri.toString();
+						}
+
+						context.getContentResolver().delete( uri, null, null );
 						return "";
 					}
 				}
+
+				if( overwriteExistingMedia )
+					break;
 			}
 		}
 		else
 		{
-			File directory = new File( Environment.getExternalStoragePublicDirectory( Environment.DIRECTORY_DCIM ), directoryName );
+			File directory = new File( mediaSaveOmitDCIM ? Environment.getExternalStorageDirectory() : Environment.getExternalStoragePublicDirectory( Environment.DIRECTORY_DCIM ), directoryName );
 			directory.mkdirs();
 
 			File file;
@@ -166,6 +224,9 @@ public class NativeGallery
 				newFilename = filenameWithoutExtension + fileIndex++;
 				if( extension.length() > 0 )
 					newFilename += "." + extension;
+
+				if( overwriteExistingMedia )
+					break;
 			} while( file.exists() );
 
 			try
@@ -173,7 +234,37 @@ public class NativeGallery
 				if( NativeGalleryUtils.WriteFileToStream( originalFile, new FileOutputStream( file ) ) )
 				{
 					values.put( MediaStore.MediaColumns.DATA, file.getAbsolutePath() );
-					context.getContentResolver().insert( externalContentUri, values );
+
+					if( !overwriteExistingMedia )
+						context.getContentResolver().insert( externalContentUri, values );
+					else
+					{
+						Uri existingMediaUri = null;
+						Cursor cursor = null;
+						try
+						{
+							cursor = context.getContentResolver().query( externalContentUri, new String[] { "_id" }, MediaStore.MediaColumns.DATA + "=?", new String[] { values.getAsString( MediaStore.MediaColumns.DATA ) }, null );
+							if( cursor != null && cursor.moveToFirst() )
+							{
+								existingMediaUri = ContentUris.withAppendedId( externalContentUri, cursor.getLong( cursor.getColumnIndex( "_id" ) ) );
+								Log.d( "Unity", "Overwriting existing media" );
+							}
+						}
+						catch( Exception e )
+						{
+							Log.e( "Unity", "Couldn't overwrite existing media's metadata:", e );
+						}
+						finally
+						{
+							if( cursor != null )
+								cursor.close();
+						}
+
+						if( existingMediaUri == null )
+							context.getContentResolver().insert( externalContentUri, values );
+						else
+							context.getContentResolver().update( existingMediaUri, values, null, null );
+					}
 
 					Log.d( "Unity", "Saved media to: " + file.getPath() );
 
