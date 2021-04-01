@@ -26,6 +26,8 @@ Set **Write Permission** to **External (SDCard)** in **Player Settings**. You ca
 
 ### iOS Setup
 
+**IMPORTANT:** If you are targeting iOS 14 or later, you need to build your app with Xcode 12 or later to avoid any permission issues.
+
 There are two ways to set up the plugin on iOS:
 
 **a. Automated Setup for iOS**
