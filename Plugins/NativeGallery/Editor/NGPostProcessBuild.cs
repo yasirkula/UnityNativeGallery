@@ -1,7 +1,7 @@
-﻿using System.IO;
+﻿#if UNITY_IOS
+using System.IO;
 using UnityEditor;
 using UnityEngine;
-#if UNITY_IOS
 using UnityEditor.Callbacks;
 using UnityEditor.iOS.Xcode;
 #endif
@@ -18,17 +18,6 @@ namespace NativeGalleryNamespace
 #if !UNITY_2018_1_OR_NEWER
 		private const bool MINIMUM_TARGET_8_OR_ABOVE = false;
 #endif
-
-		[InitializeOnLoadMethod]
-		public static void ValidatePlugin()
-		{
-			string jarPath = "Assets/Plugins/NativeGallery/Android/NativeGallery.jar";
-			if( File.Exists( jarPath ) )
-			{
-				Debug.Log( "Deleting obsolete " + jarPath );
-				AssetDatabase.DeleteAsset( jarPath );
-			}
-		}
 
 #if UNITY_IOS
 #pragma warning disable 0162

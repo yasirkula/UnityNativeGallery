@@ -25,6 +25,8 @@ b. Manual Setup for iOS
 - insert "-weak_framework PhotosUI -weak_framework Photos -framework AssetsLibrary -framework MobileCoreServices -framework ImageIO" to the "Other Linker Flags" of Unity-iPhone Target (if your Deployment Target is at least 8.0, it is sufficient to insert "-weak_framework PhotosUI -framework Photos -framework MobileCoreServices -framework ImageIO")
 - lastly, remove Photos.framework and PhotosUI.framework from Link Binary With Libraries of Unity-iPhone Target in Build Phases, if exists
 
+IMPORTANT: If you are targeting iOS 14 or later, you need to build your app with Xcode 12 or later to avoid any permission issues.
+
 
 3. FAQ
 - How can I fetch the path of the saved image or the original path of the picked image on iOS?
@@ -34,7 +36,7 @@ You can't. On iOS, these files are stored in an internal directory that we have 
 "android:requestLegacyExternalStorage" attribute in AndroidManifest.xml fixes a rare UnauthorizedAccessException on Android 10 but requires you to update your Android SDK to at least SDK 29. If this isn't possible for you, you should open NativeGallery.aar with WinRAR or 7-Zip and then remove the "<application ... />" tag from AndroidManifest.xml.
 
 - Can't access the Gallery, it says "java.lang.ClassNotFoundException: com.yasirkula.unity.NativeGallery" in Logcat
-If your project uses ProGuard, try adding the following line to ProGuard filters: -keep class com.yasirkula.unity.* { *; }
+If you are sure that your plugin is up-to-date, then enable "Custom Proguard File" option from Player Settings and add the following line to that file: -keep class com.yasirkula.unity.* { *; }
 
 - Nothing happens when I try to access the Gallery on Android
 Make sure that you've set the "Write Permission" to "External (SDCard)" in Player Settings.

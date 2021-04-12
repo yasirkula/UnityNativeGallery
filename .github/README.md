@@ -47,7 +47,7 @@ You can't. On iOS, these files are stored in an internal directory that we have 
 
 - **Can't access the Gallery, it says "java.lang.ClassNotFoundException: com.yasirkula.unity.NativeGallery" in Logcat**
 
-If your project uses ProGuard, try adding the following line to ProGuard filters: `-keep class com.yasirkula.unity.* { *; }`
+If you are sure that your plugin is up-to-date, then enable **Custom Proguard File** option from *Player Settings* and add the following line to that file: `-keep class com.yasirkula.unity.* { *; }`
 
 - **Android build fails, it says "error: attribute android:requestLegacyExternalStorage not found" in Console**
 

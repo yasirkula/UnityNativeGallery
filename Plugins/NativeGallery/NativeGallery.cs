@@ -2,7 +2,7 @@
 using System.IO;
 using UnityEngine;
 using Object = UnityEngine.Object;
-#if !UNITY_EDITOR && ( UNITY_ANDROID || UNITY_IOS )
+#if UNITY_ANDROID || UNITY_IOS
 using NativeGalleryNamespace;
 #endif
 
