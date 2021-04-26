@@ -22,8 +22,8 @@ b. Manual Setup for iOS
 - enter a Photo Library Usage Description to Info.plist in Xcode
 - also enter a "Photo Library Additions Usage Description" to Info.plist in Xcode, if exists
 - set Info.plist's "Prevent limited photos access alert" property's value to 1 in Xcode, if exists
-- insert "-weak_framework PhotosUI -weak_framework Photos -framework AssetsLibrary -framework MobileCoreServices -framework ImageIO" to the "Other Linker Flags" of Unity-iPhone Target (if your Deployment Target is at least 8.0, it is sufficient to insert "-weak_framework PhotosUI -framework Photos -framework MobileCoreServices -framework ImageIO")
-- lastly, remove Photos.framework and PhotosUI.framework from Link Binary With Libraries of Unity-iPhone Target in Build Phases, if exists
+- insert "-weak_framework PhotosUI -weak_framework Photos -framework AssetsLibrary -framework MobileCoreServices -framework ImageIO" to the "Other Linker Flags" of Unity-iPhone Target (and UnityFramework Target on Unity 2019.3 or newer) (if your Deployment Target is at least 8.0, it is sufficient to insert "-weak_framework PhotosUI -framework Photos -framework MobileCoreServices -framework ImageIO")
+- lastly, remove Photos.framework and PhotosUI.framework from Link Binary With Libraries of Unity-iPhone Target (and UnityFramework Target on Unity 2019.3 or newer) in Build Phases, if exists
 
 IMPORTANT: If you are targeting iOS 14 or later, you need to build your app with Xcode 12 or later to avoid any permission issues.
 
