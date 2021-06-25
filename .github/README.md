@@ -240,7 +240,7 @@ private void PickImage( int maxSize )
 			// it will only be freed after a scene change
 			Destroy( texture, 5f );
 		}
-	}, "Select a PNG image", "image/png" );
+	} );
 
 	Debug.Log( "Permission result: " + permission );
 }
