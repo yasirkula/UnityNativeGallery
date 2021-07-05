@@ -13,11 +13,11 @@ for Android: set "Write Permission" to "External (SDCard)" in Player Settings
 for iOS: there are two ways to set up the plugin on iOS:
 
 a. Automated Setup for iOS
-- (optional) change the values of PHOTO_LIBRARY_USAGE_DESCRIPTION and PHOTO_LIBRARY_ADDITIONS_USAGE_DESCRIPTION in Plugins/NativeGallery/Editor/NGPostProcessBuild.cs
-- (Unity 2017.4 or earlier) if your minimum Deployment Target (iOS Version) is at least 8.0, set the value of MINIMUM_TARGET_8_OR_ABOVE to true in NGPostProcessBuild.cs
+- (optional) change the values of 'Photo Library Usage Description' and 'Photo Library Additions Usage Description' at 'Project Settings/yasirkula/Native Gallery'
+- (Unity 2017.4 or earlier) if your minimum Deployment Target (iOS Version) is at least 8.0, set the value of 'Deployment Target Is 8.0 Or Above' to true at 'Project Settings/yasirkula/Native Gallery'
 
 b. Manual Setup for iOS
-- set the value of ENABLED to false in NGPostProcessBuild.cs
+- set the value of 'Automated Setup' to false at 'Project Settings/yasirkula/Native Gallery'
 - build your project
 - enter a Photo Library Usage Description to Info.plist in Xcode
 - also enter a "Photo Library Additions Usage Description" to Info.plist in Xcode, if exists
