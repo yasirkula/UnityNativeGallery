@@ -855,7 +855,9 @@ public static class NativeGallery
 					height = 0;
 				if( !long.TryParse( properties[2].Trim(), out duration ) )
 					duration = 0L;
-				if( !float.TryParse( properties[3].Trim(), out rotation ) )
+				var rotStr = properties[3].Trim();
+				rotStr = rotStr.Replace(',', '.');
+				if ( !Single.TryParse(rotStr, NumberStyles.Float, CultureInfo.InvariantCulture, out rotation ) )
 					rotation = 0f;
 			}
 		}
