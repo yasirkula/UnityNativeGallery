@@ -1,26 +1,15 @@
 package com.yasirkula.unity;
 
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.Fragment;
-import android.content.ContentResolver;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
-import android.database.Cursor;
-import android.net.Uri;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.provider.MediaStore;
-import android.provider.OpenableColumns;
 import android.util.Log;
-import android.webkit.MimeTypeMap;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.ArrayList;
+import android.widget.Toast;
 
 /**
  * Created by yasirkula on 23.02.2018.
@@ -38,12 +27,12 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 
 	public static boolean preferGetContent = false;
 	public static boolean tryPreserveFilenames = false; // When enabled, app's cache will fill more quickly since most of the images will have a unique filename (less chance of overwriting old files)
+	public static boolean showProgressbar = true; // When enabled, a progressbar will be displayed while selected file(s) are copied (if necessary) to the destination directory
+	public static boolean useDefaultGalleryApp = false; // false: Intent.createChooser is used to pick the Gallery app
 
 	private final NativeGalleryMediaReceiver mediaReceiver;
 	private boolean selectMultiple;
 	private String savePathDirectory, savePathFilename;
-
-	private ArrayList<String> savedFiles;
 
 	public NativeGalleryMediaPickerFragment()
 	{
@@ -125,176 +114,20 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 			if( title != null && title.length() > 0 )
 				intent.putExtra( Intent.EXTRA_TITLE, title );
 
-			startActivityForResult( Intent.createChooser( intent, title ), MEDIA_REQUEST_CODE );
-		}
-	}
-
-	// Credit: https://stackoverflow.com/a/47023265/2373034
-	@TargetApi( Build.VERSION_CODES.JELLY_BEAN_MR2 )
-	private void fetchPathsOfMultipleMedia( ArrayList<String> result, Intent data )
-	{
-		if( data.getClipData() != null )
-		{
-			int count = data.getClipData().getItemCount();
-			for( int i = 0; i < count; i++ )
-			{
-				result.add( getPathFromURI( data.getClipData().getItemAt( i ).getUri() ) );
-			}
-		}
-		else if( data.getData() != null )
-		{
-			result.add( getPathFromURI( data.getData() ) );
-		}
-	}
-
-	private String getPathFromURI( Uri uri )
-	{
-		if( uri == null )
-			return null;
-
-		Log.d( "Unity", "Selected media uri: " + uri.toString() );
-
-		String path = NativeGalleryUtils.GetPathFromURI( getActivity(), uri );
-		if( path != null && path.length() > 0 )
-		{
-			// Check if file is accessible
-			FileInputStream inputStream = null;
 			try
 			{
-				inputStream = new FileInputStream( new File( path ) );
-				inputStream.read();
-
-				return path;
+				//  MIUI devices have issues with Intent.createChooser on at least Android 11 (https://stackoverflow.com/questions/67785661/taking-and-picking-photos-on-poco-x3-with-android-11-does-not-work)
+				if( useDefaultGalleryApp || ( Build.VERSION.SDK_INT == 30 && NativeGalleryUtils.IsXiaomiOrMIUI() ) )
+					startActivityForResult( intent, MEDIA_REQUEST_CODE );
+				else
+					startActivityForResult( Intent.createChooser( intent, title ), MEDIA_REQUEST_CODE );
 			}
-			catch( Exception e )
+			catch( ActivityNotFoundException e )
 			{
-			}
-			finally
-			{
-				if( inputStream != null )
-				{
-					try
-					{
-						inputStream.close();
-					}
-					catch( Exception e )
-					{
-					}
-				}
+				Toast.makeText( getActivity(), "No apps can perform this action.", Toast.LENGTH_LONG ).show();
+				onActivityResult( MEDIA_REQUEST_CODE, Activity.RESULT_CANCELED, null );
 			}
 		}
-
-		// File path couldn't be determined, copy the file to an accessible temporary location
-		return copyToTempFile( uri );
-	}
-
-	private String copyToTempFile( Uri uri )
-	{
-		// Credit: https://developer.android.com/training/secure-file-sharing/retrieve-info.html#RetrieveFileInfo
-		ContentResolver resolver = getActivity().getContentResolver();
-		Cursor returnCursor = null;
-		String filename = null;
-
-		try
-		{
-			returnCursor = resolver.query( uri, null, null, null, null );
-			if( returnCursor != null && returnCursor.moveToFirst() )
-				filename = returnCursor.getString( returnCursor.getColumnIndex( OpenableColumns.DISPLAY_NAME ) );
-		}
-		catch( Exception e )
-		{
-			Log.e( "Unity", "Exception:", e );
-		}
-		finally
-		{
-			if( returnCursor != null )
-				returnCursor.close();
-		}
-
-		if( filename == null || filename.length() < 3 )
-			filename = "temp";
-
-		String extension = null;
-		String mime = resolver.getType( uri );
-		if( mime != null )
-		{
-			String mimeExtension = MimeTypeMap.getSingleton().getExtensionFromMimeType( mime );
-			if( mimeExtension != null && mimeExtension.length() > 0 )
-				extension = "." + mimeExtension;
-		}
-
-		if( extension == null )
-		{
-			int filenameExtensionIndex = filename.lastIndexOf( '.' );
-			if( filenameExtensionIndex > 0 && filenameExtensionIndex < filename.length() - 1 )
-				extension = filename.substring( filenameExtensionIndex );
-			else
-				extension = ".tmp";
-		}
-
-		if( !tryPreserveFilenames )
-			filename = savePathFilename;
-		else if( filename.endsWith( extension ) )
-			filename = filename.substring( 0, filename.length() - extension.length() );
-
-		try
-		{
-			InputStream input = resolver.openInputStream( uri );
-			if( input == null )
-				return null;
-
-			String fullName = filename + extension;
-			if( savedFiles != null )
-			{
-				int n = 1;
-				for( int i = 0; i < savedFiles.size(); i++ )
-				{
-					if( savedFiles.get( i ).equals( fullName ) )
-					{
-						n++;
-						fullName = filename + n + extension;
-						i = -1;
-					}
-				}
-			}
-
-			File tempFile = new File( savePathDirectory, fullName );
-			OutputStream output = null;
-			try
-			{
-				output = new FileOutputStream( tempFile, false );
-
-				byte[] buf = new byte[4096];
-				int len;
-				while( ( len = input.read( buf ) ) > 0 )
-				{
-					output.write( buf, 0, len );
-				}
-
-				if( selectMultiple )
-				{
-					if( savedFiles == null )
-						savedFiles = new ArrayList<String>();
-
-					savedFiles.add( fullName );
-				}
-
-				return tempFile.getAbsolutePath();
-			}
-			finally
-			{
-				if( output != null )
-					output.close();
-
-				input.close();
-			}
-		}
-		catch( Exception e )
-		{
-			Log.e( "Unity", "Exception:", e );
-		}
-
-		return null;
 	}
 
 	@Override
@@ -303,49 +136,32 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 		if( requestCode != MEDIA_REQUEST_CODE )
 			return;
 
-		if( !selectMultiple )
+		NativeGalleryMediaPickerResultFragment resultFragment = null;
+
+		if( mediaReceiver == null )
+			Log.d( "Unity", "NativeGalleryMediaPickerFragment.mediaReceiver became null!" );
+		else if( resultCode != Activity.RESULT_OK || data == null )
 		{
-			String result;
-			if( resultCode != Activity.RESULT_OK || data == null )
-				result = "";
+			if( !selectMultiple )
+				mediaReceiver.OnMediaReceived( "" );
 			else
-			{
-				result = getPathFromURI( data.getData() );
-				if( result == null )
-					result = "";
-			}
-
-			if( result.length() > 0 && !( new File( result ).exists() ) )
-				result = "";
-
-			if( mediaReceiver != null )
-				mediaReceiver.OnMediaReceived( result );
+				mediaReceiver.OnMultipleMediaReceived( "" );
 		}
 		else
 		{
-			ArrayList<String> result = new ArrayList<String>();
-			if( resultCode == Activity.RESULT_OK && data != null )
-				fetchPathsOfMultipleMedia( result, data );
-
-			for( int i = result.size() - 1; i >= 0; i-- )
+			NativeGalleryMediaPickerResultOperation resultOperation = new NativeGalleryMediaPickerResultOperation( getActivity(), mediaReceiver, data, selectMultiple, savePathDirectory, savePathFilename );
+			if( showProgressbar )
+				resultFragment = new NativeGalleryMediaPickerResultFragment( resultOperation );
+			else
 			{
-				if( result.get( i ) == null || result.get( i ).length() == 0 || !( new File( result.get( i ) ).exists() ) )
-					result.remove( i );
+				resultOperation.execute();
+				resultOperation.sendResultToUnity();
 			}
-
-			String resultCombined = "";
-			for( int i = 0; i < result.size(); i++ )
-			{
-				if( i == 0 )
-					resultCombined += result.get( i );
-				else
-					resultCombined += ">" + result.get( i );
-			}
-
-			if( mediaReceiver != null )
-				mediaReceiver.OnMultipleMediaReceived( resultCombined );
 		}
 
-		getFragmentManager().beginTransaction().remove( this ).commit();
+		if( resultFragment == null )
+			getFragmentManager().beginTransaction().remove( this ).commit();
+		else
+			getFragmentManager().beginTransaction().remove( this ).add( 0, resultFragment ).commit();
 	}
 }
