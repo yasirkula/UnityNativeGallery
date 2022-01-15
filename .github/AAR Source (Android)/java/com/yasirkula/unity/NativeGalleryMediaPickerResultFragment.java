@@ -6,15 +6,14 @@ import android.app.DialogFragment;
 import android.content.DialogInterface;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import java.util.Timer;
-import java.util.TimerTask;
-
-// Timer usage reference: https://stackoverflow.com/a/45604466/2373034
+// Handler usage reference: https://stackoverflow.com/a/6242292/2373034
 public class NativeGalleryMediaPickerResultFragment extends DialogFragment
 {
 	public static int uiUpdateInterval = 100;
@@ -22,8 +21,43 @@ public class NativeGalleryMediaPickerResultFragment extends DialogFragment
 
 	private final NativeGalleryMediaPickerResultOperation resultOperation;
 
-	private final Timer uiUpdateTimer = new Timer();
 	private ProgressBar progressBar;
+
+	private final Handler uiUpdateHandler = new Handler( Looper.getMainLooper() );
+	private final Runnable progressBarUpdateTask = new Runnable()
+	{
+		@Override
+		public void run()
+		{
+			if( resultOperation.finished )
+			{
+				resultOperation.sendResultToUnity();
+				dismiss();
+			}
+			else
+			{
+				try
+				{
+					if( progressBar != null )
+					{
+						if( resultOperation.progress >= 0 )
+						{
+							if( progressBar.isIndeterminate() )
+								progressBar.setIndeterminate( false );
+
+							progressBar.setProgress( resultOperation.progress );
+						}
+						else if( !progressBar.isIndeterminate() )
+							progressBar.setIndeterminate( true );
+					}
+				}
+				finally
+				{
+					uiUpdateHandler.postDelayed( progressBarUpdateTask, uiUpdateInterval );
+				}
+			}
+		}
+	};
 
 	public NativeGalleryMediaPickerResultFragment()
 	{
@@ -114,38 +148,14 @@ public class NativeGalleryMediaPickerResultFragment extends DialogFragment
 	public void onActivityCreated( Bundle savedInstanceState )
 	{
 		super.onActivityCreated( savedInstanceState );
-
-		uiUpdateTimer.scheduleAtFixedRate( new TimerTask()
-		{
-			@Override
-			public void run()
-			{
-				if( resultOperation.finished )
-				{
-					resultOperation.sendResultToUnity();
-					dismiss();
-				}
-				else if( progressBar != null )
-				{
-					if( resultOperation.progress >= 0 )
-					{
-						if( progressBar.isIndeterminate() )
-							progressBar.setIndeterminate( false );
-
-						progressBar.setProgress( resultOperation.progress );
-					}
-					else if( !progressBar.isIndeterminate() )
-						progressBar.setIndeterminate( true );
-				}
-			}
-		}, 0, uiUpdateInterval );
+		progressBarUpdateTask.run();
 	}
 
 	@Override
 	public void onDetach()
 	{
 		progressBar = null;
-		uiUpdateTimer.cancel();
+		uiUpdateHandler.removeCallbacks( progressBarUpdateTask );
 
 		super.onDetach();
 	}

@@ -188,22 +188,22 @@ public class NativeGalleryMediaPickerResultOperation
 			filename = "temp";
 
 		String extension = null;
-		String mime = resolver.getType( uri );
-		if( mime != null )
+		int filenameExtensionIndex = filename.lastIndexOf( '.' );
+		if( filenameExtensionIndex > 0 && filenameExtensionIndex < filename.length() - 1 )
+			extension = filename.substring( filenameExtensionIndex );
+		else
 		{
-			String mimeExtension = MimeTypeMap.getSingleton().getExtensionFromMimeType( mime );
-			if( mimeExtension != null && mimeExtension.length() > 0 )
-				extension = "." + mimeExtension;
+			String mime = resolver.getType( uri );
+			if( mime != null )
+			{
+				String mimeExtension = MimeTypeMap.getSingleton().getExtensionFromMimeType( mime );
+				if( mimeExtension != null && mimeExtension.length() > 0 )
+					extension = "." + mimeExtension;
+			}
 		}
 
 		if( extension == null )
-		{
-			int filenameExtensionIndex = filename.lastIndexOf( '.' );
-			if( filenameExtensionIndex > 0 && filenameExtensionIndex < filename.length() - 1 )
-				extension = filename.substring( filenameExtensionIndex );
-			else
-				extension = ".tmp";
-		}
+			extension = ".tmp";
 
 		if( !NativeGalleryMediaPickerFragment.tryPreserveFilenames )
 			filename = savePathFilename;

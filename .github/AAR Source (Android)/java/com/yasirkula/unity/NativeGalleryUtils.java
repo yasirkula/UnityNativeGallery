@@ -115,8 +115,10 @@ public class NativeGalleryUtils
 					final String id = DocumentsContract.getDocumentId( uri );
 					if( id.startsWith( "raw:" ) ) // https://stackoverflow.com/a/51874578/2373034
 						return id.substring( 4 );
-
-					uri = ContentUris.withAppendedId( Uri.parse( "content://downloads/public_downloads" ), Long.valueOf( id ) );
+					else if( id.indexOf( ':' ) < 0 ) // Don't attempt to parse stuff like "msf:NUMBER" (newer Android versions)
+						uri = ContentUris.withAppendedId( Uri.parse( "content://downloads/public_downloads" ), Long.parseLong( id ) );
+					else
+						return null;
 				}
 				else if( "com.android.providers.media.documents".equals( uri.getAuthority() ) )
 				{
