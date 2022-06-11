@@ -38,7 +38,7 @@ public class NativeGallery
 	public static final int MEDIA_TYPE_AUDIO = 4;
 
 	public static boolean overwriteExistingMedia = false;
-	public static boolean mediaSaveOmitDCIM = false; // If set to true, 'directoryName' on Android 29+ must start with either "DCIM/" or ["Pictures/", "Videos/", "Audio/"]
+	public static boolean mediaSaveOmitDCIM = false; // If set to true, 'directoryName' on Android 29+ must start with either "DCIM/" or ["Pictures/", "Movies/", "Music/", "Alarms/", "Notifications/", "Audiobooks/", "Podcasts/", "Ringtones/"]
 
 	public static String SaveMedia( Context context, int mediaType, String filePath, String directoryName )
 	{
