@@ -70,17 +70,20 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 			if( ( mediaType & NativeGallery.MEDIA_TYPE_AUDIO ) == NativeGallery.MEDIA_TYPE_AUDIO )
 				mediaTypeCount++;
 
-			Intent intent;
+			Intent intent = null;
 			if( !preferGetContent && !selectMultiple && mediaTypeCount == 1 && mediaType != NativeGallery.MEDIA_TYPE_AUDIO )
 			{
+				intent = new Intent( Intent.ACTION_PICK );
+
 				if( mediaType == NativeGallery.MEDIA_TYPE_IMAGE )
-					intent = new Intent( Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI );
+					intent.setDataAndType( MediaStore.Images.Media.EXTERNAL_CONTENT_URI, mime );
 				else if( mediaType == NativeGallery.MEDIA_TYPE_VIDEO )
-					intent = new Intent( Intent.ACTION_PICK, MediaStore.Video.Media.EXTERNAL_CONTENT_URI );
+					intent.setDataAndType( MediaStore.Video.Media.EXTERNAL_CONTENT_URI, mime );
 				else
-					intent = new Intent( Intent.ACTION_PICK, MediaStore.Audio.Media.EXTERNAL_CONTENT_URI );
+					intent.setDataAndType( MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, mime );
 			}
-			else
+
+			if( intent == null )
 			{
 				intent = new Intent( mediaTypeCount > 1 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT ? Intent.ACTION_OPEN_DOCUMENT : Intent.ACTION_GET_CONTENT );
 				intent.addCategory( Intent.CATEGORY_OPENABLE );
@@ -107,9 +110,9 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 						intent.putExtra( Intent.EXTRA_MIME_TYPES, mimetypes );
 					}
 				}
-			}
 
-			intent.setType( mime );
+				intent.setType( mime );
+			}
 
 			if( title != null && title.length() > 0 )
 				intent.putExtra( Intent.EXTRA_TITLE, title );
