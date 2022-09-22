@@ -148,10 +148,14 @@ There are two functions to handle permissions with this plugin:
 - **generateMipmaps** determines whether texture should have mipmaps or not
 - **linearColorSpace** determines whether texture should be in linear color space or sRGB color space
 
-`Texture2D NativeGallery.GetVideoThumbnail( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true )`: creates a Texture2D thumbnail from a video file and returns it. Returns *null*, if something goes wrong.
+`async Task<Texture2D> NativeGallery.LoadImageAtPathAsync( string imagePath, int maxSize = -1, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false )`: asynchronous variant of *LoadImageAtPath* (requires Unity 2018.4 or later). Works best when *linearColorSpace* is *false*. It's also slightly faster when *generateMipmaps* is *false*. Note that it isn't possible to load multiple images simultaneously using this function.
+
+`Texture2D NativeGallery.GetVideoThumbnail( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false )`: creates a Texture2D thumbnail from a video file and returns it. Returns *null*, if something goes wrong.
 - **maxSize** determines the maximum size of the returned Texture2D in pixels. Larger thumbnails will be down-scaled. If untouched, its value will be set to *SystemInfo.maxTextureSize*. It is recommended to set a proper maxSize for better performance
 - **captureTimeInSeconds** determines the frame of the video that the thumbnail is captured from. If untouched, OS will decide this value
 - **markTextureNonReadable** (see *LoadImageAtPath*)
+
+`async Task<Texture2D> NativeGallery.GetVideoThumbnailAsync( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false )`: asynchronous variant of *GetVideoThumbnail* (requires Unity 2018.4 or later). Works best when *linearColorSpace* is *false*. It's also slightly faster when *generateMipmaps* is *false*. Note that it isn't possible to generate multiple video thumbnails simultaneously using this function.
 
 ## EXAMPLE CODE
 

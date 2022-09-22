@@ -1,4 +1,4 @@
-= Native Gallery for Android & iOS =
+= Native Gallery for Android & iOS (v1.7.0) =
 
 Online documentation & example code available at: https://github.com/yasirkula/UnityNativeGallery
 E-mail: yasirkula@gmail.com
@@ -125,12 +125,14 @@ bool NativeGallery.CanOpenSettings();
 // generateMipmaps: determines whether texture should have mipmaps or not
 // linearColorSpace: determines whether texture should be in linear color space or sRGB color space
 Texture2D NativeGallery.LoadImageAtPath( string imagePath, int maxSize = -1, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false );
+async Task<Texture2D> NativeGallery.LoadImageAtPathAsync( string imagePath, int maxSize = -1, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false );
 
 // Creates a Texture2D thumbnail from a video file and returns it. Returns null, if something goes wrong
 // maxSize: determines the maximum size of the returned Texture2D in pixels. Larger thumbnails will be down-scaled. If untouched, its value will be set to SystemInfo.maxTextureSize. It is recommended to set a proper maxSize for better performance
 // captureTimeInSeconds: determines the frame of the video that the thumbnail is captured from. If untouched, OS will decide this value
 // markTextureNonReadable: see LoadImageAtPath
-Texture2D NativeGallery.GetVideoThumbnail( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true );
+Texture2D NativeGallery.GetVideoThumbnail( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false );
+async Task<Texture2D> NativeGallery.GetVideoThumbnailAsync( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false );
 
 // Returns an ImageProperties instance that holds the width, height and mime type information of an image file without creating a Texture2D object. Mime type will be null, if it can't be determined
 NativeGallery.ImageProperties NativeGallery.GetImageProperties( string imagePath );
