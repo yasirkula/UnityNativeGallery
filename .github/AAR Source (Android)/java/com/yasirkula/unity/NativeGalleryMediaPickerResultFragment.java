@@ -1,5 +1,6 @@
 package com.yasirkula.unity;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.DialogFragment;
@@ -64,7 +65,8 @@ public class NativeGalleryMediaPickerResultFragment extends DialogFragment
 		resultOperation = null;
 	}
 
-	public NativeGalleryMediaPickerResultFragment( final NativeGalleryMediaPickerResultOperation resultOperation )
+	@SuppressLint("ValidFragment")
+	public NativeGalleryMediaPickerResultFragment(final NativeGalleryMediaPickerResultOperation resultOperation )
 	{
 		this.resultOperation = resultOperation;
 	}

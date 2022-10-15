@@ -99,7 +99,7 @@ public class NativeGallery
 			externalContentUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
 
 		// Android 10 restricts our access to the raw filesystem, use MediaStore to save media in that case
-		if( android.os.Build.VERSION.SDK_INT >= 29 )
+		if( Build.VERSION.SDK_INT >= 29 )
 		{
 			values.put( MediaStore.MediaColumns.RELATIVE_PATH, mediaSaveOmitDCIM ? ( directoryName + "/" ) : ( "DCIM/" + directoryName + "/" ) );
 			values.put( MediaStore.MediaColumns.DATE_TAKEN, System.currentTimeMillis() );
@@ -327,7 +327,7 @@ public class NativeGallery
 			return 1;
 
 		// On Android 10 and later, saving to Gallery doesn't require any permissions
-		if( !readPermission && android.os.Build.VERSION.SDK_INT >= 29 )
+		if( !readPermission && Build.VERSION.SDK_INT >= 29 )
 			return 1;
 
 		if( context.checkSelfPermission( Manifest.permission.READ_EXTERNAL_STORAGE ) == PackageManager.PERMISSION_GRANTED )

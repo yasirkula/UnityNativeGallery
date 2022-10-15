@@ -22,6 +22,7 @@ package com.yasirkula.unity;
 // SOFTWARE.
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Fragment;
 import android.content.Intent;
@@ -43,7 +44,8 @@ public class NativeGalleryPermissionFragment extends Fragment
 		permissionReceiver = null;
 	}
 
-	public NativeGalleryPermissionFragment( final NativeGalleryPermissionReceiver permissionReceiver )
+	@SuppressLint("ValidFragment")
+	public NativeGalleryPermissionFragment(final NativeGalleryPermissionReceiver permissionReceiver )
 	{
 		this.permissionReceiver = permissionReceiver;
 	}

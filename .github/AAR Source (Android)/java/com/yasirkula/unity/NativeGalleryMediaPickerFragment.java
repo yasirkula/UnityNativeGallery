@@ -1,5 +1,6 @@
 package com.yasirkula.unity;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.ActivityNotFoundException;
@@ -39,7 +40,8 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 		mediaReceiver = null;
 	}
 
-	public NativeGalleryMediaPickerFragment( final NativeGalleryMediaReceiver mediaReceiver )
+	@SuppressLint("ValidFragment")
+	public NativeGalleryMediaPickerFragment(final NativeGalleryMediaReceiver mediaReceiver )
 	{
 		this.mediaReceiver = mediaReceiver;
 	}

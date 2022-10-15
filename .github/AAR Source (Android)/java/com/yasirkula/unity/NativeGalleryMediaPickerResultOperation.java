@@ -1,5 +1,6 @@
 package com.yasirkula.unity;
 
+import android.annotation.SuppressLint;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -157,7 +158,8 @@ public class NativeGalleryMediaPickerResultOperation
 		return copyToTempFile( uri );
 	}
 
-	private String copyToTempFile( Uri uri )
+	@SuppressLint("Range")
+	private String copyToTempFile(Uri uri )
 	{
 		// Credit: https://developer.android.com/training/secure-file-sharing/retrieve-info.html#RetrieveFileInfo
 		ContentResolver resolver = context.getContentResolver();
