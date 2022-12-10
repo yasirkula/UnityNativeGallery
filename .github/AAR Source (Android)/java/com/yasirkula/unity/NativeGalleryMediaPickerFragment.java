@@ -49,7 +49,7 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 	{
 		super.onCreate( savedInstanceState );
 		if( mediaReceiver == null )
-			getFragmentManager().beginTransaction().remove( this ).commit();
+			onActivityResult( MEDIA_REQUEST_CODE, Activity.RESULT_CANCELED, null );
 		else
 		{
 			int mediaType = getArguments().getInt( MEDIA_TYPE_ID );

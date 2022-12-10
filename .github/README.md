@@ -24,7 +24,7 @@ There are 5 ways to install this plugin:
 
 ### Android Setup
 
-Set **Write Permission** to **External (SDCard)** in **Player Settings**. You can skip this step if your app won't be saving media to the Gallery but instead just reading media from it.
+NativeGallery no longer requires any manual setup on Android.
 
 ### iOS Setup
 
@@ -121,14 +121,15 @@ Beginning with *6.0 Marshmallow*, Android apps must request runtime permissions 
 
 There are two functions to handle permissions with this plugin:
 
-`NativeGallery.Permission NativeGallery.CheckPermission( PermissionType permissionType )`: checks whether the app has access to Gallery/Photos or not. **PermissionType** can be either **Read** (for *GetImageFromGallery/GetVideoFromGallery* functions) or **Write** (for *SaveImageToGallery/SaveVideoToGallery* functions).
+`NativeGallery.Permission NativeGallery.CheckPermission( PermissionType permissionType, MediaType mediaTypes )`: checks whether the app has access to Gallery/Photos or not. **PermissionType** can be either **Read** (for *GetImageFromGallery/GetVideoFromGallery* functions) or **Write** (for *SaveImageToGallery/SaveVideoToGallery* functions).
+- **mediaTypes** determines for which media type(s) we're checking the permission for. Has no effect on iOS
 
 **NativeGallery.Permission** is an enum that can take 3 values: 
 - **Granted**: we have the permission to access Gallery/Photos
 - **ShouldAsk**: we don't have permission yet, but we can ask the user for permission via *RequestPermission* function (see below). On Android, as long as the user doesn't select "Don't ask again" while denying the permission, ShouldAsk is returned
 - **Denied**: we don't have permission and we can't ask the user for permission. In this case, user has to give the permission from Settings. This happens when user denies the permission on iOS (can't request permission again on iOS), when user selects "Don't ask again" while denying the permission on Android or when user is not allowed to give that permission (parental controls etc.)
 
-`NativeGallery.Permission NativeGallery.RequestPermission( PermissionType permissionType )`: requests permission to access Gallery/Photos from the user and returns the result. It is recommended to show a brief explanation before asking the permission so that user understands why the permission is needed and doesn't click Deny or worse, "Don't ask again". Note that the SaveImageToGallery/SaveVideoToGallery and GetImageFromGallery/GetVideoFromGallery functions call RequestPermission internally and execute only if the permission is granted (the result of RequestPermission is also returned).
+`NativeGallery.Permission NativeGallery.RequestPermission( PermissionType permissionType, MediaType mediaTypes )`: requests permission to access Gallery/Photos from the user and returns the result. It is recommended to show a brief explanation before asking the permission so that user understands why the permission is needed and doesn't click Deny or worse, "Don't ask again". Note that the SaveImageToGallery/SaveVideoToGallery and GetImageFromGallery/GetVideoFromGallery functions call RequestPermission internally and execute only if the permission is granted (the result of RequestPermission is also returned).
 
 `NativeGallery.OpenSettings()`: opens the settings for this app, from where the user can manually grant permission in case current permission state is *Permission.Denied* (on Android, the necessary permission is named *Storage* and on iOS, the necessary permission is named *Photos*).
 

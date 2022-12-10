@@ -30,10 +30,13 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 
+import java.util.ArrayList;
+
 @TargetApi( Build.VERSION_CODES.M )
 public class NativeGalleryPermissionFragment extends Fragment
 {
 	public static final String READ_PERMISSION_ONLY = "NG_ReadOnly";
+	public static final String MEDIA_TYPE_ID = "NG_MediaType";
 	private static final int PERMISSIONS_REQUEST_CODE = 123655;
 
 	private final NativeGalleryPermissionReceiver permissionReceiver;
@@ -53,13 +56,30 @@ public class NativeGalleryPermissionFragment extends Fragment
 	{
 		super.onCreate( savedInstanceState );
 		if( permissionReceiver == null )
-			getFragmentManager().beginTransaction().remove( this ).commit();
+			onRequestPermissionsResult( PERMISSIONS_REQUEST_CODE, new String[0], new int[0] );
 		else
 		{
 			boolean readPermissionOnly = getArguments().getBoolean( READ_PERMISSION_ONLY );
-			String[] permissions = readPermissionOnly ? new String[] { Manifest.permission.READ_EXTERNAL_STORAGE } :
-					new String[] { Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE };
-			requestPermissions( permissions, PERMISSIONS_REQUEST_CODE );
+			if( !readPermissionOnly && Build.VERSION.SDK_INT < 30 )
+				requestPermissions( new String[] { Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE }, PERMISSIONS_REQUEST_CODE );
+			else if( Build.VERSION.SDK_INT < 33 || getActivity().getApplicationInfo().targetSdkVersion < 33 )
+				requestPermissions( new String[] { Manifest.permission.READ_EXTERNAL_STORAGE }, PERMISSIONS_REQUEST_CODE );
+			else
+			{
+				ArrayList<String> permissions = new ArrayList<String>( 3 );
+				int mediaType = getArguments().getInt( MEDIA_TYPE_ID );
+				if( ( mediaType & NativeGallery.MEDIA_TYPE_IMAGE ) == NativeGallery.MEDIA_TYPE_IMAGE )
+					permissions.add( "android.permission.READ_MEDIA_IMAGES" );
+				if( ( mediaType & NativeGallery.MEDIA_TYPE_VIDEO ) == NativeGallery.MEDIA_TYPE_VIDEO )
+					permissions.add( "android.permission.READ_MEDIA_VIDEO" );
+				if( ( mediaType & NativeGallery.MEDIA_TYPE_AUDIO ) == NativeGallery.MEDIA_TYPE_AUDIO )
+					permissions.add( "android.permission.READ_MEDIA_AUDIO" );
+
+				String[] permissionsArray = new String[permissions.size()];
+				permissions.toArray( permissionsArray );
+
+				requestPermissions( permissionsArray, PERMISSIONS_REQUEST_CODE );
+			}
 		}
 	}
 

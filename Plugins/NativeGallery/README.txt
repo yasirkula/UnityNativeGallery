@@ -1,4 +1,4 @@
-= Native Gallery for Android & iOS (v1.7.0) =
+= Native Gallery for Android & iOS (v1.7.1) =
 
 Online documentation & example code available at: https://github.com/yasirkula/UnityNativeGallery
 E-mail: yasirkula@gmail.com
@@ -109,8 +109,9 @@ bool NativeGallery.IsMediaPickerBusy();
 //// Runtime Permissions ////
 
 // Interacting with Gallery/Photos is only possible when permission state is Permission.Granted. Most of the functions request permission internally (and return the result) but you can also check/request the permissions manually
-NativeGallery.Permission NativeGallery.CheckPermission( PermissionType permissionType );
-NativeGallery.Permission NativeGallery.RequestPermission( PermissionType permissionType );
+// mediaTypes: for which media type(s) we're checking the permission for. Has no effect on iOS
+NativeGallery.Permission NativeGallery.CheckPermission( PermissionType permissionType, MediaType mediaTypes );
+NativeGallery.Permission NativeGallery.RequestPermission( PermissionType permissionType, MediaType mediaTypes );
 
 // If permission state is Permission.Denied, user must grant the necessary permission (Storage on Android and Photos on iOS) manually from the Settings. These functions help you open the Settings directly from within the app
 void NativeGallery.OpenSettings();
@@ -131,6 +132,8 @@ async Task<Texture2D> NativeGallery.LoadImageAtPathAsync( string imagePath, int 
 // maxSize: determines the maximum size of the returned Texture2D in pixels. Larger thumbnails will be down-scaled. If untouched, its value will be set to SystemInfo.maxTextureSize. It is recommended to set a proper maxSize for better performance
 // captureTimeInSeconds: determines the frame of the video that the thumbnail is captured from. If untouched, OS will decide this value
 // markTextureNonReadable: see LoadImageAtPath
+// generateMipmaps: see LoadImageAtPath
+// linearColorSpace: see LoadImageAtPath
 Texture2D NativeGallery.GetVideoThumbnail( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false );
 async Task<Texture2D> NativeGallery.GetVideoThumbnailAsync( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false );
 

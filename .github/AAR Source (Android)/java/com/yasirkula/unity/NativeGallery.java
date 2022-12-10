@@ -166,6 +166,21 @@ public class NativeGallery
 
 							Log.d( "Unity", "Saved media to: " + uri.toString() );
 
+							try
+							{
+								// Refresh the Gallery. This actually shouldn't have been necessary as ACTION_MEDIA_SCANNER_SCAN_FILE
+								// is deprecated with the message "Callers should migrate to inserting items directly into MediaStore,
+								// where they will be automatically scanned after each mutation" but apparently, some phones just don't
+								// want to abide by the rules, ugh... (see: https://github.com/yasirkula/UnityNativeGallery/issues/265)
+								Intent mediaScanIntent = new Intent( Intent.ACTION_MEDIA_SCANNER_SCAN_FILE );
+								mediaScanIntent.setData( uri );
+								context.sendBroadcast( mediaScanIntent );
+							}
+							catch( Exception e )
+							{
+								Log.e( "Unity", "Exception:", e );
+							}
+
 							String path = NativeGalleryUtils.GetPathFromURI( context, uri );
 							return path != null && path.length() > 0 ? path : uri.toString();
 						}
@@ -297,7 +312,7 @@ public class NativeGallery
 
 	public static void PickMedia( Context context, final NativeGalleryMediaReceiver mediaReceiver, int mediaType, boolean selectMultiple, String savePath, String mime, String title )
 	{
-		if( CheckPermission( context, true ) != 1 )
+		if( CheckPermission( context, true, mediaType ) != 1 )
 		{
 			if( !selectMultiple )
 				mediaReceiver.OnMediaReceived( "" );
@@ -321,28 +336,41 @@ public class NativeGallery
 	}
 
 	@TargetApi( Build.VERSION_CODES.M )
-	public static int CheckPermission( Context context, final boolean readPermission )
+	public static int CheckPermission( Context context, final boolean readPermission, final int mediaType )
 	{
 		if( Build.VERSION.SDK_INT < Build.VERSION_CODES.M )
 			return 1;
 
-		// On Android 10 and later, saving to Gallery doesn't require any permissions
-		if( !readPermission && android.os.Build.VERSION.SDK_INT >= 29 )
-			return 1;
-
-		if( context.checkSelfPermission( Manifest.permission.READ_EXTERNAL_STORAGE ) == PackageManager.PERMISSION_GRANTED )
+		if( !readPermission )
 		{
-			if( readPermission || context.checkSelfPermission( Manifest.permission.WRITE_EXTERNAL_STORAGE ) == PackageManager.PERMISSION_GRANTED )
+			if( android.os.Build.VERSION.SDK_INT >= 29 ) // On Android 10 and later, saving to Gallery doesn't require any permissions
 				return 1;
+			else if( context.checkSelfPermission( Manifest.permission.WRITE_EXTERNAL_STORAGE ) != PackageManager.PERMISSION_GRANTED )
+				return 0;
 		}
 
-		return 0;
+		if( Build.VERSION.SDK_INT < 33 || context.getApplicationInfo().targetSdkVersion < 33 )
+		{
+			if( context.checkSelfPermission( Manifest.permission.READ_EXTERNAL_STORAGE ) != PackageManager.PERMISSION_GRANTED )
+				return 0;
+		}
+		else
+		{
+			if( ( mediaType & MEDIA_TYPE_IMAGE ) == MEDIA_TYPE_IMAGE && context.checkSelfPermission( "android.permission.READ_MEDIA_IMAGES" ) != PackageManager.PERMISSION_GRANTED )
+				return 0;
+			if( ( mediaType & MEDIA_TYPE_VIDEO ) == MEDIA_TYPE_VIDEO && context.checkSelfPermission( "android.permission.READ_MEDIA_VIDEO" ) != PackageManager.PERMISSION_GRANTED )
+				return 0;
+			if( ( mediaType & MEDIA_TYPE_AUDIO ) == MEDIA_TYPE_AUDIO && context.checkSelfPermission( "android.permission.READ_MEDIA_AUDIO" ) != PackageManager.PERMISSION_GRANTED )
+				return 0;
+		}
+
+		return 1;
 	}
 
 	// Credit: https://github.com/Over17/UnityAndroidPermissions/blob/0dca33e40628f1f279decb67d901fd444b409cd7/src/UnityAndroidPermissions/src/main/java/com/unity3d/plugin/UnityAndroidPermissions.java
-	public static void RequestPermission( Context context, final NativeGalleryPermissionReceiver permissionReceiver, final boolean readPermission, final int lastCheckResult )
+	public static void RequestPermission( Context context, final NativeGalleryPermissionReceiver permissionReceiver, final boolean readPermission, final int mediaType, final int lastCheckResult )
 	{
-		if( CheckPermission( context, readPermission ) == 1 )
+		if( CheckPermission( context, readPermission, mediaType ) == 1 )
 		{
 			permissionReceiver.OnPermissionResult( 1 );
 			return;
@@ -356,6 +384,7 @@ public class NativeGallery
 
 		Bundle bundle = new Bundle();
 		bundle.putBoolean( NativeGalleryPermissionFragment.READ_PERMISSION_ONLY, readPermission );
+		bundle.putInt( NativeGalleryPermissionFragment.MEDIA_TYPE_ID, mediaType );
 
 		final Fragment request = new NativeGalleryPermissionFragment( permissionReceiver );
 		request.setArguments( bundle );
