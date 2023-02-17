@@ -447,6 +447,11 @@ public static class NativeGallery
 
 			SaveToGalleryInternal( path, album, mediaType, callback );
 		}
+        else
+        {
+            if( callback != null )
+                callback( false, null );
+        }
 
 		return result;
 	}
@@ -483,6 +488,12 @@ public static class NativeGallery
 
 			SaveToGalleryInternal( path, album, mediaType, callback );
 		}
+        else
+        {
+            if( callback != null )
+                callback( false, null );
+        }
+        
 
 		return result;
 	}
@@ -603,7 +614,12 @@ public static class NativeGallery
 				callback( null );
 #endif
 		}
-
+        else
+        {
+            if( callback != null )
+                callback( null );
+        }
+        
 		return result;
 	}
 
@@ -637,6 +653,11 @@ public static class NativeGallery
 			else if( callback != null )
 				callback( null );
 		}
+        else
+        {
+            if( callback != null )
+                callback( null );
+        }
 
 		return result;
 	}
