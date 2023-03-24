@@ -806,9 +806,11 @@ public static class NativeGallery
 			maxSize = SystemInfo.maxTextureSize;
 
 #if !UNITY_EDITOR && UNITY_ANDROID
-		string loadPath = await TryCallNativeAndroidFunctionOnSeparateThread( () => AJC.CallStatic<string>( "LoadImageAtPath", Context, imagePath, TemporaryImagePath, maxSize ) );
+		string temporaryImagePath = TemporaryImagePath; // Must be accessed from main thread
+		string loadPath = await TryCallNativeAndroidFunctionOnSeparateThread( () => AJC.CallStatic<string>( "LoadImageAtPath", Context, imagePath, temporaryImagePath, maxSize ) );
 #elif !UNITY_EDITOR && UNITY_IOS
-		string loadPath = await Task.Run( () => _NativeGallery_LoadImageAtPath( imagePath, TemporaryImagePath, maxSize ) );
+		string temporaryImagePath = TemporaryImagePath; // Must be accessed from main thread
+		string loadPath = await Task.Run( () => _NativeGallery_LoadImageAtPath( imagePath, temporaryImagePath, maxSize ) );
 #else
 		string loadPath = imagePath;
 #endif
@@ -941,9 +943,11 @@ public static class NativeGallery
 			maxSize = SystemInfo.maxTextureSize;
 
 #if !UNITY_EDITOR && UNITY_ANDROID
-		string thumbnailPath = await TryCallNativeAndroidFunctionOnSeparateThread( () => AJC.CallStatic<string>( "GetVideoThumbnail", Context, videoPath, TemporaryImagePath + ".png", false, maxSize, captureTimeInSeconds ) );
+		string temporaryImagePath = TemporaryImagePath; // Must be accessed from main thread
+		string thumbnailPath = await TryCallNativeAndroidFunctionOnSeparateThread( () => AJC.CallStatic<string>( "GetVideoThumbnail", Context, videoPath, temporaryImagePath + ".png", false, maxSize, captureTimeInSeconds ) );
 #elif !UNITY_EDITOR && UNITY_IOS
-		string thumbnailPath = await Task.Run( () => _NativeGallery_GetVideoThumbnail( videoPath, TemporaryImagePath + ".png", maxSize, captureTimeInSeconds ) );
+		string temporaryImagePath = TemporaryImagePath; // Must be accessed from main thread
+		string thumbnailPath = await Task.Run( () => _NativeGallery_GetVideoThumbnail( videoPath, temporaryImagePath + ".png", maxSize, captureTimeInSeconds ) );
 #else
 		string thumbnailPath = null;
 #endif

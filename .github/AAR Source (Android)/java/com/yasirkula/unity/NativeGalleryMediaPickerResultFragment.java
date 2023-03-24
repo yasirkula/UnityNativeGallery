@@ -32,7 +32,7 @@ public class NativeGalleryMediaPickerResultFragment extends DialogFragment
 			if( resultOperation.finished )
 			{
 				resultOperation.sendResultToUnity();
-				dismiss();
+				dismissAllowingStateLoss();
 			}
 			else
 			{
@@ -132,7 +132,7 @@ public class NativeGalleryMediaPickerResultFragment extends DialogFragment
 						resultOperation.cancel();
 						resultOperation.sendResultToUnity();
 
-						dismiss();
+						dismissAllowingStateLoss();
 					}
 				} )
 				.setCancelable( false )
