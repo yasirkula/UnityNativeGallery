@@ -39,6 +39,7 @@ public class NativeGallery
 
 	public static boolean overwriteExistingMedia = false;
 	public static boolean mediaSaveOmitDCIM = false; // If set to true, 'directoryName' on Android 29+ must start with either "DCIM/" or ["Pictures/", "Movies/", "Music/", "Alarms/", "Notifications/", "Audiobooks/", "Podcasts/", "Ringtones/"]
+	public static boolean PermissionFreeMode = false; // true: Permissions for reading/writing media elements won't be requested
 
 	public static String SaveMedia( Context context, int mediaType, String filePath, String directoryName )
 	{
@@ -341,6 +342,9 @@ public class NativeGallery
 		if( Build.VERSION.SDK_INT < Build.VERSION_CODES.M )
 			return 1;
 
+		if( PermissionFreeMode )
+			return 1;
+
 		if( !readPermission )
 		{
 			if( android.os.Build.VERSION.SDK_INT >= 29 ) // On Android 10 and later, saving to Gallery doesn't require any permissions
@@ -354,8 +358,13 @@ public class NativeGallery
 			if( context.checkSelfPermission( Manifest.permission.READ_EXTERNAL_STORAGE ) != PackageManager.PERMISSION_GRANTED )
 				return 0;
 		}
-		else
+		else if( Build.VERSION.SDK_INT < 34 )
 		{
+			// On Android 14+ (34), partial media access permission is introduced which we want to avoid because they're
+			// confusing for the end user and media access permission shouldn't have been necessary in the first place for
+			// the Intents we're using. They were there to avoid edge cases in some problematic devices:
+			// https://developer.android.com/about/versions/14/changes/partial-photo-video-access
+			// We're hoping that by now, those problematic devices have resolved their issues.
 			if( ( mediaType & MEDIA_TYPE_IMAGE ) == MEDIA_TYPE_IMAGE && context.checkSelfPermission( "android.permission.READ_MEDIA_IMAGES" ) != PackageManager.PERMISSION_GRANTED )
 				return 0;
 			if( ( mediaType & MEDIA_TYPE_VIDEO ) == MEDIA_TYPE_VIDEO && context.checkSelfPermission( "android.permission.READ_MEDIA_VIDEO" ) != PackageManager.PERMISSION_GRANTED )

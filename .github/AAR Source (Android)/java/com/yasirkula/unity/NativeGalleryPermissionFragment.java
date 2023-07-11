@@ -64,7 +64,7 @@ public class NativeGalleryPermissionFragment extends Fragment
 				requestPermissions( new String[] { Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE }, PERMISSIONS_REQUEST_CODE );
 			else if( Build.VERSION.SDK_INT < 33 || getActivity().getApplicationInfo().targetSdkVersion < 33 )
 				requestPermissions( new String[] { Manifest.permission.READ_EXTERNAL_STORAGE }, PERMISSIONS_REQUEST_CODE );
-			else
+			else if( Build.VERSION.SDK_INT < 34 )
 			{
 				ArrayList<String> permissions = new ArrayList<String>( 3 );
 				int mediaType = getArguments().getInt( MEDIA_TYPE_ID );
@@ -80,6 +80,8 @@ public class NativeGalleryPermissionFragment extends Fragment
 
 				requestPermissions( permissionsArray, PERMISSIONS_REQUEST_CODE );
 			}
+			else
+				onRequestPermissionsResult( PERMISSIONS_REQUEST_CODE, new String[0], new int[0] );
 		}
 	}
 
