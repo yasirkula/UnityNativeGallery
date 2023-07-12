@@ -25,5 +25,22 @@ namespace NativeGalleryNamespace
 			}
 		}
 	}
+
+	public class NGPermissionCallbackAsyncAndroid : AndroidJavaProxy
+	{
+		private readonly NativeGallery.PermissionCallback callback;
+		private readonly NGCallbackHelper callbackHelper;
+
+		public NGPermissionCallbackAsyncAndroid( NativeGallery.PermissionCallback callback ) : base( "com.yasirkula.unity.NativeGalleryPermissionReceiver" )
+		{
+			this.callback = callback;
+			callbackHelper = new GameObject( "NGCallbackHelper" ).AddComponent<NGCallbackHelper>();
+		}
+
+		public void OnPermissionResult( int result )
+		{
+			callbackHelper.CallOnMainThread( () => callback( (NativeGallery.Permission) result ) );
+		}
+	}
 }
 #endif

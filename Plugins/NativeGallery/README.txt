@@ -1,4 +1,4 @@
-= Native Gallery for Android & iOS (v1.7.3) =
+= Native Gallery for Android & iOS (v1.7.4) =
 
 Online documentation & example code available at: https://github.com/yasirkula/UnityNativeGallery
 E-mail: yasirkula@gmail.com
@@ -57,6 +57,7 @@ enum NativeGallery.Permission { Denied = 0, Granted = 1, ShouldAsk = 2 };
 enum NativeGallery.ImageOrientation { Unknown = -1, Normal = 0, Rotate90 = 1, Rotate180 = 2, Rotate270 = 3, FlipHorizontal = 4, Transpose = 5, FlipVertical = 6, Transverse = 7 }; // EXIF orientation: http://sylvana.net/jpegcrop/exif_orientation.html (indices are reordered)
 enum MediaType { Image = 1, Video = 2, Audio = 4 };
 
+delegate void PermissionCallback( NativeGallery.Permission permission );
 delegate void MediaSaveCallback( bool success, string path );
 delegate void NativeGallery.MediaPickCallback( string path );
 delegate void MediaPickMultipleCallback( string[] paths );
@@ -112,6 +113,10 @@ bool NativeGallery.IsMediaPickerBusy();
 // mediaTypes: for which media type(s) we're checking the permission for. Has no effect on iOS
 NativeGallery.Permission NativeGallery.CheckPermission( PermissionType permissionType, MediaType mediaTypes );
 NativeGallery.Permission NativeGallery.RequestPermission( PermissionType permissionType, MediaType mediaTypes );
+
+// Asynchronous variants of RequestPermission. Unlike RequestPermission, these functions don't freeze the app unnecessarily before the permission dialog is displayed. So it's recommended to call these functions instead
+void NativeGallery.RequestPermissionAsync( PermissionCallback callback, PermissionType permissionType, MediaType mediaTypes );
+Task<NativeGallery.Permission> NativeGallery.RequestPermissionAsync( PermissionType permissionType, MediaType mediaTypes );
 
 // If permission state is Permission.Denied, user must grant the necessary permission (Storage on Android and Photos on iOS) manually from the Settings. These functions help you open the Settings directly from within the app
 void NativeGallery.OpenSettings();

@@ -55,6 +55,7 @@ public static class NativeGallery
 	// EXIF orientation: http://sylvana.net/jpegcrop/exif_orientation.html (indices are reordered)
 	public enum ImageOrientation { Unknown = -1, Normal = 0, Rotate90 = 1, Rotate180 = 2, Rotate270 = 3, FlipHorizontal = 4, Transpose = 5, FlipVertical = 6, Transverse = 7 };
 
+	public delegate void PermissionCallback( Permission permission );
 	public delegate void MediaSaveCallback( bool success, string path );
 	public delegate void MediaPickCallback( string path );
 	public delegate void MediaPickMultipleCallback( string[] paths );
@@ -94,7 +95,7 @@ public static class NativeGallery
 	private static extern int _NativeGallery_CheckPermission( int readPermission, int permissionFreeMode );
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern int _NativeGallery_RequestPermission( int readPermission, int permissionFreeMode );
+	private static extern int _NativeGallery_RequestPermission( int readPermission, int permissionFreeMode, int asyncMode );
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
 	private static extern void _NativeGallery_ShowLimitedLibraryPicker();
@@ -186,9 +187,7 @@ public static class NativeGallery
 
 		return result;
 #elif !UNITY_EDITOR && UNITY_IOS
-		// result == 3: LimitedAccess permission on iOS, no need to handle it when PermissionFreeMode is set to true
-		int result = _NativeGallery_CheckPermission( permissionType == PermissionType.Read ? 1 : 0, PermissionFreeMode ? 1 : 0 );
-		return result == 3 ? Permission.Granted : (Permission) result;
+		return ProcessPermission( (Permission) _NativeGallery_CheckPermission( permissionType == PermissionType.Read ? 1 : 0, PermissionFreeMode ? 1 : 0 ) );
 #else
 		return Permission.Granted;
 #endif
@@ -196,6 +195,10 @@ public static class NativeGallery
 
 	public static Permission RequestPermission( PermissionType permissionType, MediaType mediaTypes )
 	{
+		// Don't block the main thread if the permission is already granted
+		if( CheckPermission( permissionType, mediaTypes ) == Permission.Granted )
+			return Permission.Granted;
+
 #if !UNITY_EDITOR && UNITY_ANDROID
 		object threadLock = new object();
 		lock( threadLock )
@@ -216,12 +219,38 @@ public static class NativeGallery
 			return (Permission) nativeCallback.Result;
 		}
 #elif !UNITY_EDITOR && UNITY_IOS
-		// result == 3: LimitedAccess permission on iOS, no need to handle it when PermissionFreeMode is set to true
-		int result = _NativeGallery_RequestPermission( permissionType == PermissionType.Read ? 1 : 0, PermissionFreeMode ? 1 : 0 );
-		return result == 3 ? Permission.Granted : (Permission) result;
+		return ProcessPermission( (Permission) _NativeGallery_RequestPermission( permissionType == PermissionType.Read ? 1 : 0, PermissionFreeMode ? 1 : 0, 0 ) );
 #else
 		return Permission.Granted;
 #endif
+	}
+
+	public static void RequestPermissionAsync( PermissionCallback callback, PermissionType permissionType, MediaType mediaTypes )
+	{
+#if !UNITY_EDITOR && UNITY_ANDROID
+		NGPermissionCallbackAsyncAndroid nativeCallback = new NGPermissionCallbackAsyncAndroid( callback );
+		AJC.CallStatic( "RequestPermission", Context, nativeCallback, permissionType == PermissionType.Read, (int) mediaTypes, (int) Permission.ShouldAsk );
+#elif !UNITY_EDITOR && UNITY_IOS
+		NGPermissionCallbackiOS.Initialize( ( result ) => callback( ProcessPermission( result ) ) );
+		_NativeGallery_RequestPermission( permissionType == PermissionType.Read ? 1 : 0, PermissionFreeMode ? 1 : 0, 1 );
+#else
+		callback( Permission.Granted );
+#endif
+	}
+
+#if UNITY_2018_4_OR_NEWER && !NATIVE_GALLERY_DISABLE_ASYNC_FUNCTIONS
+	public static Task<Permission> RequestPermissionAsync( PermissionType permissionType, MediaType mediaTypes )
+	{
+		TaskCompletionSource<Permission> tcs = new TaskCompletionSource<Permission>();
+		RequestPermissionAsync( ( permission ) => tcs.SetResult( permission ), permissionType, mediaTypes );
+		return tcs.Task;
+	}
+#endif
+
+	private static Permission ProcessPermission( Permission permission )
+	{
+		// result == 3: LimitedAccess permission on iOS, no need to handle it when PermissionFreeMode is set to true
+		return ( PermissionFreeMode && (int) permission == 3 ) ? Permission.Granted : permission;
 	}
 
 	// This function isn't needed when PermissionFreeMode is set to true

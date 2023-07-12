@@ -20,7 +20,7 @@ extern UIViewController* UnityGetGLViewController();
 
 @interface UNativeGallery:NSObject
 + (int)checkPermission:(BOOL)readPermission permissionFreeMode:(BOOL)permissionFreeMode;
-+ (int)requestPermission:(BOOL)readPermission permissionFreeMode:(BOOL)permissionFreeMode;
++ (int)requestPermission:(BOOL)readPermission permissionFreeMode:(BOOL)permissionFreeMode asyncMode:(BOOL)asyncMode;
 + (void)showLimitedLibraryPicker;
 + (int)canOpenSettings;
 + (void)openSettings;
@@ -106,8 +106,9 @@ static BOOL pickingMultipleFiles = NO;
 }
 #pragma clang diagnostic pop
 
-+ (int)requestPermission:(BOOL)readPermission permissionFreeMode:(BOOL)permissionFreeMode
++ (int)requestPermission:(BOOL)readPermission permissionFreeMode:(BOOL)permissionFreeMode asyncMode:(BOOL)asyncMode
 {
+	int result;
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < 80000
 	if( CHECK_IOS_VERSION( @"8.0" ) )
 	{
@@ -116,10 +117,9 @@ static BOOL pickingMultipleFiles = NO;
 		
 		// On iOS 11 and later, permission isn't mandatory to fetch media from Photos
 		if( readPermission && permissionFreeMode && CHECK_IOS_VERSION( @"11.0" ) )
-			return 1;
-		
+			result = 1;
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 140000
-		if( CHECK_IOS_VERSION( @"14.0" ) )
+		else if( CHECK_IOS_VERSION( @"14.0" ) )
 		{
 			// Photos permissions has changed on iOS 14. There are 2 permission dialogs now:
 			// - AddOnly permission dialog: has 2 options: "Allow" and "Don't Allow". This dialog grants permission for save operations only. Unfortunately,
@@ -128,18 +128,23 @@ static BOOL pickingMultipleFiles = NO;
 			//   "Don't Allow". To be able to save media to a custom album, user must grant Full Photos permission. Thus, even when readPermission is false,
 			//   this dialog will be used if PermissionFreeMode is set to false. So, PermissionFreeMode determines whether or not saving to a custom album is
 			//   be supported
-			return [self requestPermissionNewest:( readPermission || !permissionFreeMode )];
+			result = [self requestPermissionNewest:( readPermission || !permissionFreeMode ) asyncMode:asyncMode];
 		}
-		else
 #endif
-			return [self requestPermissionNew];
+		else
+			result = [self requestPermissionNew:asyncMode];
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < 80000
 	}
 	else
 	{
 		// version < iOS 8: request permission using AssetsLibrary framework (Photos framework not available)
-		return [self requestPermissionOld];
+		result = [self requestPermissionOld:asyncMode];
 	}
+	
+	if( asyncMode && result >= 0 ) // Result returned immediately, forward it
+		UnitySendMessage( "NGPermissionCallbackiOS", "OnPermissionRequested", [self getCString:[NSString stringWithFormat:@"%d", result]] );
+		
+	return result;
 #endif
 }
 
@@ -147,7 +152,7 @@ static BOOL pickingMultipleFiles = NO;
 // Credit: https://stackoverflow.com/a/26933380/2373034
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-+ (int)requestPermissionOld
++ (int)requestPermissionOld:(BOOL)asyncMode
 {
 	ALAuthorizationStatus status = [ALAssetsLibrary authorizationStatus];
 	
@@ -155,23 +160,38 @@ static BOOL pickingMultipleFiles = NO;
 		return 1;
 	else if( status == ALAuthorizationStatusNotDetermined )
 	{
-		__block BOOL authorized = NO;
-		ALAssetsLibrary *lib = [[ALAssetsLibrary alloc] init];
-		
-		dispatch_semaphore_t sema = dispatch_semaphore_create( 0 );
-		[lib enumerateGroupsWithTypes:ALAssetsGroupAll usingBlock:^( ALAssetsGroup *group, BOOL *stop )
+		if( asyncMode )
 		{
-			*stop = YES;
-			authorized = YES;
-			dispatch_semaphore_signal( sema );
+			[[[ALAssetsLibrary alloc] init] enumerateGroupsWithTypes:ALAssetsGroupAll usingBlock:^( ALAssetsGroup *group, BOOL *stop )
+			{
+				*stop = YES;
+				UnitySendMessage( "NGPermissionCallbackiOS", "OnPermissionRequested", "1" );
+			}
+			failureBlock:^( NSError *error )
+			{
+				UnitySendMessage( "NGPermissionCallbackiOS", "OnPermissionRequested", "0" );
+			}];
+			
+			return -1;
 		}
-		failureBlock:^( NSError *error )
+		else
 		{
-			dispatch_semaphore_signal( sema );
-		}];
-		dispatch_semaphore_wait( sema, DISPATCH_TIME_FOREVER );
-		
-		return authorized ? 1 : 0;
+			__block BOOL authorized = NO;
+			dispatch_semaphore_t sema = dispatch_semaphore_create( 0 );
+			[[[ALAssetsLibrary alloc] init] enumerateGroupsWithTypes:ALAssetsGroupAll usingBlock:^( ALAssetsGroup *group, BOOL *stop )
+			{
+				*stop = YES;
+				authorized = YES;
+				dispatch_semaphore_signal( sema );
+			}
+			failureBlock:^( NSError *error )
+			{
+				dispatch_semaphore_signal( sema );
+			}];
+			dispatch_semaphore_wait( sema, DISPATCH_TIME_FOREVER );
+			
+			return authorized ? 1 : 0;
+		}
 	}
 
 	return 0;
@@ -180,7 +200,7 @@ static BOOL pickingMultipleFiles = NO;
 #endif
 
 // Credit: https://stackoverflow.com/a/32989022/2373034
-+ (int)requestPermissionNew
++ (int)requestPermissionNew:(BOOL)asyncMode
 {
 	PHAuthorizationStatus status = [PHPhotoLibrary authorizationStatus];
 	
@@ -188,24 +208,36 @@ static BOOL pickingMultipleFiles = NO;
 		return 1;
 	else if( status == PHAuthorizationStatusNotDetermined )
 	{
-		__block BOOL authorized = NO;
-		
-		dispatch_semaphore_t sema = dispatch_semaphore_create( 0 );
-		[PHPhotoLibrary requestAuthorization:^( PHAuthorizationStatus status )
+		if( asyncMode )
 		{
-			authorized = ( status == PHAuthorizationStatusAuthorized );
-			dispatch_semaphore_signal( sema );
-		}];
-		dispatch_semaphore_wait( sema, DISPATCH_TIME_FOREVER );
-		
-		return authorized ? 1 : 0;
+			[PHPhotoLibrary requestAuthorization:^( PHAuthorizationStatus status )
+			{
+				UnitySendMessage( "NGPermissionCallbackiOS", "OnPermissionRequested", ( status == PHAuthorizationStatusAuthorized ) ? "1" : "0" );
+			}];
+			
+			return -1;
+		}
+		else
+		{
+			__block BOOL authorized = NO;
+			
+			dispatch_semaphore_t sema = dispatch_semaphore_create( 0 );
+			[PHPhotoLibrary requestAuthorization:^( PHAuthorizationStatus status )
+			{
+				authorized = ( status == PHAuthorizationStatusAuthorized );
+				dispatch_semaphore_signal( sema );
+			}];
+			dispatch_semaphore_wait( sema, DISPATCH_TIME_FOREVER );
+			
+			return authorized ? 1 : 0;
+		}
 	}
 	
 	return 0;
 }
 
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 140000
-+ (int)requestPermissionNewest:(BOOL)readPermission
++ (int)requestPermissionNewest:(BOOL)readPermission asyncMode:(BOOL)asyncMode
 {
 	PHAuthorizationStatus status = [PHPhotoLibrary authorizationStatusForAccessLevel:( readPermission ? PHAccessLevelReadWrite : PHAccessLevelAddOnly )];
 	
@@ -215,21 +247,38 @@ static BOOL pickingMultipleFiles = NO;
 		return 3;
 	else if( status == PHAuthorizationStatusNotDetermined )
 	{
-		__block int authorized = 0;
-		
-		dispatch_semaphore_t sema = dispatch_semaphore_create( 0 );
-		[PHPhotoLibrary requestAuthorizationForAccessLevel:( readPermission ? PHAccessLevelReadWrite : PHAccessLevelAddOnly ) handler:^( PHAuthorizationStatus status )
+		if( asyncMode )
 		{
-			if( status == PHAuthorizationStatusAuthorized )
-				authorized = 1;
-			else if( status == PHAuthorizationStatusRestricted )
-				authorized = 3;
+			[PHPhotoLibrary requestAuthorizationForAccessLevel:( readPermission ? PHAccessLevelReadWrite : PHAccessLevelAddOnly ) handler:^( PHAuthorizationStatus status )
+			{
+				if( status == PHAuthorizationStatusAuthorized )
+					UnitySendMessage( "NGPermissionCallbackiOS", "OnPermissionRequested", "1" );
+				else if( status == PHAuthorizationStatusRestricted )
+					UnitySendMessage( "NGPermissionCallbackiOS", "OnPermissionRequested", "3" );
+				else
+					UnitySendMessage( "NGPermissionCallbackiOS", "OnPermissionRequested", "0" );
+			}];
+			
+			return -1;
+		}
+		else
+		{
+			__block int authorized = 0;
+			
+			dispatch_semaphore_t sema = dispatch_semaphore_create( 0 );
+			[PHPhotoLibrary requestAuthorizationForAccessLevel:( readPermission ? PHAccessLevelReadWrite : PHAccessLevelAddOnly ) handler:^( PHAuthorizationStatus status )
+			{
+				if( status == PHAuthorizationStatusAuthorized )
+					authorized = 1;
+				else if( status == PHAuthorizationStatusRestricted )
+					authorized = 3;
 
-			dispatch_semaphore_signal( sema );
-		}];
-		dispatch_semaphore_wait( sema, DISPATCH_TIME_FOREVER );
-		
-		return authorized;
+				dispatch_semaphore_signal( sema );
+			}];
+			dispatch_semaphore_wait( sema, DISPATCH_TIME_FOREVER );
+			
+			return authorized;
+		}
 	}
 	
 	return 0;
@@ -244,7 +293,7 @@ static BOOL pickingMultipleFiles = NO;
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 140000
 	PHAuthorizationStatus status = [PHPhotoLibrary authorizationStatusForAccessLevel:PHAccessLevelReadWrite];
 	if( status == PHAuthorizationStatusNotDetermined )
-		[self requestPermissionNewest:YES];
+		[self requestPermissionNewest:YES asyncMode:YES];
 	else if( status == PHAuthorizationStatusRestricted )
 		[[PHPhotoLibrary sharedPhotoLibrary] presentLimitedLibraryPickerFromViewController:UnityGetGLViewController()];
 #endif
@@ -1469,9 +1518,9 @@ extern "C" int _NativeGallery_CheckPermission( int readPermission, int permissio
 	return [UNativeGallery checkPermission:( readPermission == 1 ) permissionFreeMode:( permissionFreeMode == 1 )];
 }
 
-extern "C" int _NativeGallery_RequestPermission( int readPermission, int permissionFreeMode )
+extern "C" int _NativeGallery_RequestPermission( int readPermission, int permissionFreeMode, int asyncMode )
 {
-	return [UNativeGallery requestPermission:( readPermission == 1 ) permissionFreeMode:( permissionFreeMode == 1 )];
+	return [UNativeGallery requestPermission:( readPermission == 1 ) permissionFreeMode:( permissionFreeMode == 1 ) asyncMode:( asyncMode == 1 )];
 }
 
 extern "C" void _NativeGallery_ShowLimitedLibraryPicker()

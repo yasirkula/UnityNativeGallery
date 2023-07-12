@@ -131,6 +131,11 @@ There are two functions to handle permissions with this plugin:
 
 `NativeGallery.Permission NativeGallery.RequestPermission( PermissionType permissionType, MediaType mediaTypes )`: requests permission to access Gallery/Photos from the user and returns the result. It is recommended to show a brief explanation before asking the permission so that user understands why the permission is needed and doesn't click Deny or worse, "Don't ask again". Note that the SaveImageToGallery/SaveVideoToGallery and GetImageFromGallery/GetVideoFromGallery functions call RequestPermission internally and execute only if the permission is granted (the result of RequestPermission is also returned).
 
+`void NativeGallery.RequestPermissionAsync( PermissionCallback callback, PermissionType permissionType, MediaType mediaTypes )`: Asynchronous variant of *RequestPermission*. Unlike RequestPermission, this function doesn't freeze the app unnecessarily before the permission dialog is displayed. So it's recommended to call this function instead.
+- **PermissionCallback** takes `NativeGallery.Permission permission` parameter
+
+`Task<NativeGallery.Permission> NativeGallery.RequestPermissionAsync( PermissionType permissionType, MediaType mediaTypes )`: Another asynchronous variant of *RequestPermission* (requires Unity 2018.4 or later).
+
 `NativeGallery.OpenSettings()`: opens the settings for this app, from where the user can manually grant permission in case current permission state is *Permission.Denied* (on Android, the necessary permission is named *Storage* and on iOS, the necessary permission is named *Photos*).
 
 `bool NativeGallery.CanOpenSettings()`: on iOS versions prior to 8.0, opening settings from within app is not possible and in this case, this function returns *false*. Otherwise, it returns *true*.
@@ -195,6 +200,14 @@ void Update()
 			}
 		}
 	}
+}
+
+// Example code doesn't use this function but it is here for reference. It's recommended to ask for permissions manually using the
+// RequestPermissionAsync methods prior to calling NativeGallery functions
+private async void RequestPermissionAsynchronously( NativeGallery.PermissionType permissionType, NativeGallery.MediaType mediaTypes )
+{
+	NativeGallery.Permission permission = await NativeGallery.RequestPermissionAsync( permissionType, mediaTypes );
+	Debug.Log( "Permission result: " + permission );
 }
 
 private IEnumerator TakeScreenshotAndSave()
