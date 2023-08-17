@@ -102,7 +102,7 @@ public class NativeGallery
 		// Android 10 restricts our access to the raw filesystem, use MediaStore to save media in that case
 		if( android.os.Build.VERSION.SDK_INT >= 29 )
 		{
-			values.put( MediaStore.MediaColumns.RELATIVE_PATH, mediaSaveOmitDCIM ? ( directoryName + "/" ) : ( "DCIM/" + directoryName + "/" ) );
+			values.put( MediaStore.MediaColumns.RELATIVE_PATH, mediaSaveOmitDCIM ? ( directoryName + "/" ) : ( ( ( mediaType != MEDIA_TYPE_AUDIO ) ? "DCIM/" : "Music/" ) + directoryName + "/" ) );
 			values.put( MediaStore.MediaColumns.DATE_TAKEN, System.currentTimeMillis() );
 
 			// While using MediaStore to save media, filename collisions are automatically handled by the OS.

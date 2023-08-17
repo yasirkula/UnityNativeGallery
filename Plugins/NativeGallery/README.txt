@@ -1,4 +1,4 @@
-= Native Gallery for Android & iOS (v1.7.4) =
+= Native Gallery for Android & iOS (v1.7.5) =
 
 Online documentation & example code available at: https://github.com/yasirkula/UnityNativeGallery
 E-mail: yasirkula@gmail.com
