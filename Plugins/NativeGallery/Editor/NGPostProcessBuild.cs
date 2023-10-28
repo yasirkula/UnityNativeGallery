@@ -136,8 +136,10 @@ namespace NativeGalleryNamespace
 				plist.ReadFromString( File.ReadAllText( plistPath ) );
 
 				PlistElementDict rootDict = plist.root;
-				rootDict.SetString( "NSPhotoLibraryUsageDescription", Settings.Instance.PhotoLibraryUsageDescription );
-				rootDict.SetString( "NSPhotoLibraryAddUsageDescription", Settings.Instance.PhotoLibraryAdditionsUsageDescription );
+				if( !string.IsNullOrEmpty( Settings.Instance.PhotoLibraryUsageDescription ) )
+					rootDict.SetString( "NSPhotoLibraryUsageDescription", Settings.Instance.PhotoLibraryUsageDescription );
+				if( !string.IsNullOrEmpty( Settings.Instance.PhotoLibraryAdditionsUsageDescription ) )
+					rootDict.SetString( "NSPhotoLibraryAddUsageDescription", Settings.Instance.PhotoLibraryAdditionsUsageDescription );
 				if( Settings.Instance.DontAskLimitedPhotosPermissionAutomaticallyOnIos14 )
 					rootDict.SetBoolean( "PHPhotoLibraryPreventAutomaticLimitedAccessAlert", true );
 
