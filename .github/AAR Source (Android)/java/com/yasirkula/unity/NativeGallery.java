@@ -358,20 +358,6 @@ public class NativeGallery
 			if( context.checkSelfPermission( Manifest.permission.READ_EXTERNAL_STORAGE ) != PackageManager.PERMISSION_GRANTED )
 				return 0;
 		}
-		else if( Build.VERSION.SDK_INT < 34 )
-		{
-			// On Android 14+ (34), partial media access permission is introduced which we want to avoid because they're
-			// confusing for the end user and media access permission shouldn't have been necessary in the first place for
-			// the Intents we're using. They were there to avoid edge cases in some problematic devices:
-			// https://developer.android.com/about/versions/14/changes/partial-photo-video-access
-			// We're hoping that by now, those problematic devices have resolved their issues.
-			if( ( mediaType & MEDIA_TYPE_IMAGE ) == MEDIA_TYPE_IMAGE && context.checkSelfPermission( "android.permission.READ_MEDIA_IMAGES" ) != PackageManager.PERMISSION_GRANTED )
-				return 0;
-			if( ( mediaType & MEDIA_TYPE_VIDEO ) == MEDIA_TYPE_VIDEO && context.checkSelfPermission( "android.permission.READ_MEDIA_VIDEO" ) != PackageManager.PERMISSION_GRANTED )
-				return 0;
-			if( ( mediaType & MEDIA_TYPE_AUDIO ) == MEDIA_TYPE_AUDIO && context.checkSelfPermission( "android.permission.READ_MEDIA_AUDIO" ) != PackageManager.PERMISSION_GRANTED )
-				return 0;
-		}
 
 		return 1;
 	}

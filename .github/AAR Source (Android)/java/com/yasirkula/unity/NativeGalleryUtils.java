@@ -594,7 +594,13 @@ public class NativeGalleryUtils
 		}
 		finally
 		{
-			metadataRetriever.release();
+			try
+			{
+				metadataRetriever.release();
+			}
+			catch( Exception e )
+			{
+			}
 		}
 	}
 
@@ -662,7 +668,13 @@ public class NativeGalleryUtils
 				}
 				finally
 				{
-					metadataRetriever.release();
+					try
+					{
+						metadataRetriever.release();
+					}
+					catch( Exception e )
+					{
+					}
 				}
 			}
 
