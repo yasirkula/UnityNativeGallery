@@ -163,8 +163,8 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 		}
 
 		if( resultFragment == null )
-			getFragmentManager().beginTransaction().remove( this ).commit();
+			getFragmentManager().beginTransaction().remove( this ).commitAllowingStateLoss();
 		else
-			getFragmentManager().beginTransaction().remove( this ).add( 0, resultFragment ).commit();
+			getFragmentManager().beginTransaction().remove( this ).add( 0, resultFragment ).commitAllowingStateLoss();
 	}
 }

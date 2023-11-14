@@ -333,7 +333,7 @@ public class NativeGallery
 		final Fragment request = new NativeGalleryMediaPickerFragment( mediaReceiver );
 		request.setArguments( bundle );
 
-		( (Activity) context ).getFragmentManager().beginTransaction().add( 0, request ).commit();
+		( (Activity) context ).getFragmentManager().beginTransaction().add( 0, request ).commitAllowingStateLoss();
 	}
 
 	@TargetApi( Build.VERSION_CODES.M )
@@ -384,7 +384,7 @@ public class NativeGallery
 		final Fragment request = new NativeGalleryPermissionFragment( permissionReceiver );
 		request.setArguments( bundle );
 
-		( (Activity) context ).getFragmentManager().beginTransaction().add( 0, request ).commit();
+		( (Activity) context ).getFragmentManager().beginTransaction().add( 0, request ).commitAllowingStateLoss();
 	}
 
 	// Credit: https://stackoverflow.com/a/35456817/2373034
