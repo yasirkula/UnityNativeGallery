@@ -823,7 +823,7 @@ public static class NativeGallery
 	}
 
 #if UNITY_2018_4_OR_NEWER && !NATIVE_GALLERY_DISABLE_ASYNC_FUNCTIONS
-	public static async Task<Texture2D> LoadImageAtPathAsync( string imagePath, int maxSize = -1, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false )
+	public static async Task<Texture2D> LoadImageAtPathAsync( string imagePath, int maxSize = -1, bool markTextureNonReadable = true )
 	{
 		if( string.IsNullOrEmpty( imagePath ) )
 			throw new ArgumentException( "Parameter 'imagePath' is null or empty!" );
@@ -846,63 +846,22 @@ public static class NativeGallery
 
 		Texture2D result = null;
 
-		if( !linearColorSpace )
+		using( UnityWebRequest www = UnityWebRequestTexture.GetTexture( "file://" + loadPath, markTextureNonReadable ) )
 		{
-			using( UnityWebRequest www = UnityWebRequestTexture.GetTexture( "file://" + loadPath, markTextureNonReadable && !generateMipmaps ) )
-			{
-				UnityWebRequestAsyncOperation asyncOperation = www.SendWebRequest();
-				while( !asyncOperation.isDone )
-					await Task.Yield();
+			UnityWebRequestAsyncOperation asyncOperation = www.SendWebRequest();
+			while( !asyncOperation.isDone )
+				await Task.Yield();
 
 #if UNITY_2020_1_OR_NEWER
-				if( www.result != UnityWebRequest.Result.Success )
+			if( www.result != UnityWebRequest.Result.Success )
 #else
-				if( www.isNetworkError || www.isHttpError )
+			if( www.isNetworkError || www.isHttpError )
 #endif
-				{
-					Debug.LogWarning( "Couldn't use UnityWebRequest to load image, falling back to LoadImage: " + www.error );
-				}
-				else
-				{
-					Texture2D texture = DownloadHandlerTexture.GetContent( www );
-
-					if( !generateMipmaps )
-						result = texture;
-					else
-					{
-						Texture2D mipmapTexture = null;
-						try
-						{
-							// Generate a Texture with mipmaps enabled
-							// Credits: https://forum.unity.com/threads/generate-mipmaps-at-runtime-for-a-texture-loaded-with-unitywebrequest.644842/#post-7571809
-							NativeArray<byte> textureData = texture.GetRawTextureData<byte>();
-
-							mipmapTexture = new Texture2D( texture.width, texture.height, texture.format, true );
-#if UNITY_2019_3_OR_NEWER
-							mipmapTexture.SetPixelData( textureData, 0 );
-#else
-							NativeArray<byte> mipmapTextureData = mipmapTexture.GetRawTextureData<byte>();
-							NativeArray<byte>.Copy( textureData, mipmapTextureData, textureData.Length );
-							mipmapTexture.LoadRawTextureData( mipmapTextureData );
-#endif
-							mipmapTexture.Apply( true, markTextureNonReadable );
-
-							result = mipmapTexture;
-						}
-						catch( Exception e )
-						{
-							Debug.LogException( e );
-
-							if( mipmapTexture )
-								Object.DestroyImmediate( mipmapTexture );
-						}
-						finally
-						{
-							Object.DestroyImmediate( texture );
-						}
-					}
-				}
+			{
+				Debug.LogWarning( "Couldn't use UnityWebRequest to load image, falling back to LoadImage: " + www.error );
 			}
+			else
+				result = DownloadHandlerTexture.GetContent( www );
 		}
 
 		if( !result ) // Fallback to Texture2D.LoadImage if something goes wrong
@@ -910,7 +869,7 @@ public static class NativeGallery
 			string extension = Path.GetExtension( imagePath ).ToLowerInvariant();
 			TextureFormat format = ( extension == ".jpg" || extension == ".jpeg" ) ? TextureFormat.RGB24 : TextureFormat.RGBA32;
 
-			result = new Texture2D( 2, 2, format, generateMipmaps, linearColorSpace );
+			result = new Texture2D( 2, 2, format, true, false );
 
 			try
 			{
@@ -966,7 +925,7 @@ public static class NativeGallery
 	}
 
 #if UNITY_2018_4_OR_NEWER && !NATIVE_GALLERY_DISABLE_ASYNC_FUNCTIONS
-	public static async Task<Texture2D> GetVideoThumbnailAsync( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false )
+	public static async Task<Texture2D> GetVideoThumbnailAsync( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true )
 	{
 		if( maxSize <= 0 )
 			maxSize = SystemInfo.maxTextureSize;
@@ -982,7 +941,7 @@ public static class NativeGallery
 #endif
 
 		if( !string.IsNullOrEmpty( thumbnailPath ) )
-			return await LoadImageAtPathAsync( thumbnailPath, maxSize, markTextureNonReadable, generateMipmaps, linearColorSpace );
+			return await LoadImageAtPathAsync( thumbnailPath, maxSize, markTextureNonReadable );
 		else
 			return null;
 	}
