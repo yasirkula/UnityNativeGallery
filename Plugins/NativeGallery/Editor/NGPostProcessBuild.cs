@@ -129,6 +129,7 @@ namespace NativeGalleryNamespace
 				}
 
 				pbxProject.RemoveFrameworkFromProject( targetGUID, "Photos.framework" );
+				pbxProject.RemoveFrameworkFromProject( targetGUID, "PhotosUI.framework" );
 
 				File.WriteAllText( pbxProjectPath, pbxProject.WriteToString() );
 
