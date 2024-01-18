@@ -140,12 +140,12 @@ static BOOL pickingMultipleFiles = NO;
 		// version < iOS 8: request permission using AssetsLibrary framework (Photos framework not available)
 		result = [self requestPermissionOld:asyncMode];
 	}
+#endif
 	
 	if( asyncMode && result >= 0 ) // Result returned immediately, forward it
 		UnitySendMessage( "NGPermissionCallbackiOS", "OnPermissionRequested", [self getCString:[NSString stringWithFormat:@"%d", result]] );
 		
 	return result;
-#endif
 }
 
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < 80000
