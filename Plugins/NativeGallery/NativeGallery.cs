@@ -12,7 +12,7 @@ using NativeGalleryNamespace;
 #endif
 using Object = UnityEngine.Object;
 
-public static class NativeGallery
+public static partial class NativeGallery
 {
 	public struct ImageProperties
 	{
