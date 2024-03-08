@@ -596,13 +596,13 @@ public static class NativeGallery
 			if( ( mediaType & MediaType.Video ) == MediaType.Video )
 			{
 				editorFilters.Add( "Video files" );
-				editorFilters.Add( "mp4,mov,wav,avi" );
+				editorFilters.Add( "mp4,mov,webm,avi" );
 			}
 
 			if( ( mediaType & MediaType.Audio ) == MediaType.Audio )
 			{
 				editorFilters.Add( "Audio files" );
-				editorFilters.Add( "mp3,aac,flac" );
+				editorFilters.Add( "mp3,wav,aac,flac" );
 			}
 
 			editorFilters.Add( "All files" );

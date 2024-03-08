@@ -17,11 +17,13 @@ namespace NativeGalleryNamespace
 			callbackHelper = new GameObject( "NGCallbackHelper" ).AddComponent<NGCallbackHelper>();
 		}
 
+		[UnityEngine.Scripting.Preserve]
 		public void OnMediaReceived( string path )
 		{
 			callbackHelper.CallOnMainThread( () => callback( !string.IsNullOrEmpty( path ) ? path : null ) );
 		}
 
+		[UnityEngine.Scripting.Preserve]
 		public void OnMultipleMediaReceived( string paths )
 		{
 			string[] result = null;

@@ -21,6 +21,7 @@ namespace NativeGalleryNamespace
 			instance.callback = callback;
 		}
 
+		[UnityEngine.Scripting.Preserve]
 		public void OnMediaSaveCompleted( string message )
 		{
 			NativeGallery.MediaSaveCallback _callback = callback;
@@ -30,6 +31,7 @@ namespace NativeGalleryNamespace
 				_callback( true, null );
 		}
 
+		[UnityEngine.Scripting.Preserve]
 		public void OnMediaSaveFailed( string error )
 		{
 			NativeGallery.MediaSaveCallback _callback = callback;

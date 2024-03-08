@@ -21,6 +21,7 @@ namespace NativeGalleryNamespace
 			instance.callback = callback;
 		}
 
+		[UnityEngine.Scripting.Preserve]
 		public void OnPermissionRequested( string message )
 		{
 			NativeGallery.PermissionCallback _callback = callback;

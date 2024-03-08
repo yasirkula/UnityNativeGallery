@@ -63,6 +63,7 @@ namespace NativeGalleryNamespace
 			}
 		}
 
+		[UnityEngine.Scripting.Preserve]
 		public void OnMediaReceived( string path )
 		{
 			IsBusy = false;
@@ -77,6 +78,7 @@ namespace NativeGalleryNamespace
 				_callback( path );
 		}
 
+		[UnityEngine.Scripting.Preserve]
 		public void OnMultipleMediaReceived( string paths )
 		{
 			IsBusy = false;
