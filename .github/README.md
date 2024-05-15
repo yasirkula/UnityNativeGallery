@@ -8,7 +8,7 @@
 
 **[GitHub Sponsors ☕](https://github.com/sponsors/yasirkula)**
 
-This plugin helps you save your images and/or videos to device **Gallery** on Android and **Photos** on iOS. It is also possible to pick an image or video from Gallery/Photos.
+This plugin helps you save your images and/or videos to device **Gallery** on Android and **Photos** on iOS (other platforms aren't supported). It is also possible to pick an image or video from Gallery/Photos.
 
 ## INSTALLATION
 
@@ -46,6 +46,10 @@ There are two ways to set up the plugin on iOS:
 - **How can I fetch the path of the saved image or the original path of the picked image on iOS?**
 
 You can't. On iOS, these files are stored in an internal directory that we have no access to (I don't think there is even a way to fetch that internal path).
+
+- **Plugin doesn't work in a Windows/Mac/Linux build**
+
+Only Android & iOS platforms are supported. Editor functionality is for preview purposes only and uses Unity's [Editor-only API](https://docs.unity3d.com/ScriptReference/EditorUtility.OpenFilePanelWithFilters.html).
 
 - **Can't access the Gallery, it says "java.lang.ClassNotFoundException: com.yasirkula.unity.NativeGallery" in Logcat**
 
