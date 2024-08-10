@@ -59,10 +59,12 @@ If you are sure that your plugin is up-to-date, then enable **Custom Proguard Fi
 
 This happens on Android 33+ devices when *Target API Level* is set to 33 or later. The recommended solution is to copy the image to [persistentDataPath](https://docs.unity3d.com/ScriptReference/Application-persistentDataPath.html) because otherwise, the source image can be deleted by the user from Gallery, deleted by the operating system to free up space or overwritten by NativeGallery in the next *PickImage* call (if NativeGallery can't determine the image's source file path, then it copies the picked image to a fixed location in temporaryCachePath and thus, the image can easily be overwritten). If you still would like to persist access to the image, you can call the following code in your *Awake* function but be aware that this fix has a [hard limit of 512 files](https://issuetracker.google.com/issues/149315521#comment7):
 
+```csharp
 #if !UNITY_EDITOR && UNITY_ANDROID
 using( AndroidJavaClass ajc = new AndroidJavaClass( "com.yasirkula.unity.NativeGalleryMediaPickerFragment" ) )
 	ajc.SetStatic<bool>( "GrantPersistableUriPermission", true );
 #endif
+```
 
 - **Android build fails, it says "error: attribute android:requestLegacyExternalStorage not found" in Console**
 
