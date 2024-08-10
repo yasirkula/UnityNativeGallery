@@ -55,6 +55,15 @@ Only Android & iOS platforms are supported. Editor functionality is for preview 
 
 If you are sure that your plugin is up-to-date, then enable **Custom Proguard File** option from *Player Settings* and add the following line to that file: `-keep class com.yasirkula.unity.* { *; }`
 
+- **I save the picked image's path for later use but I can no longer access it after restarting the app**
+
+This happens on Android 33+ devices when *Target API Level* is set to 33 or later. The recommended solution is to copy the image to [persistentDataPath](https://docs.unity3d.com/ScriptReference/Application-persistentDataPath.html) because otherwise, the source image can be deleted by the user from Gallery, deleted by the operating system to free up space or overwritten by NativeGallery in the next *PickImage* call (if NativeGallery can't determine the image's source file path, then it copies the picked image to a fixed location in temporaryCachePath and thus, the image can easily be overwritten). If you still would like to persist access to the image, you can call the following code in your *Awake* function but be aware that this fix has a [hard limit of 512 files](https://issuetracker.google.com/issues/149315521#comment7):
+
+#if !UNITY_EDITOR && UNITY_ANDROID
+using( AndroidJavaClass ajc = new AndroidJavaClass( "com.yasirkula.unity.NativeGalleryMediaPickerFragment" ) )
+	ajc.SetStatic<bool>( "GrantPersistableUriPermission", true );
+#endif
+
 - **Android build fails, it says "error: attribute android:requestLegacyExternalStorage not found" in Console**
 
 `android:requestLegacyExternalStorage` attribute in _AndroidManifest.xml_ fixes a rare UnauthorizedAccessException on Android 10 but requires you to update your Android SDK to at least **SDK 29**. If this isn't possible for you, you should open *NativeGallery.aar* with WinRAR or 7-Zip and then remove the `<application ... />` tag from _AndroidManifest.xml_.

@@ -3,6 +3,7 @@ package com.yasirkula.unity;
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -29,6 +30,7 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 	public static boolean tryPreserveFilenames = false; // When enabled, app's cache will fill more quickly since most of the images will have a unique filename (less chance of overwriting old files)
 	public static boolean showProgressbar = true; // When enabled, a progressbar will be displayed while selected file(s) are copied (if necessary) to the destination directory
 	public static boolean useDefaultGalleryApp = false; // false: Intent.createChooser is used to pick the Gallery app
+	public static boolean GrantPersistableUriPermission = false; // When enabled, on newest Android versions, picked file can still be accessed after the app is restarted. Note that there's a 512-file hard limit: https://issuetracker.google.com/issues/149315521#comment7
 
 	private final NativeGalleryMediaReceiver mediaReceiver;
 	private boolean selectMultiple;
@@ -49,7 +51,10 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 	{
 		super.onCreate( savedInstanceState );
 		if( mediaReceiver == null )
+		{
+			Log.e( "Unity", "NativeGalleryMediaPickerFragment.mediaReceiver became null in onCreate!" );
 			onActivityResult( MEDIA_REQUEST_CODE, Activity.RESULT_CANCELED, null );
+		}
 		else
 		{
 			int mediaType = getArguments().getInt( MEDIA_TYPE_ID );
@@ -114,6 +119,9 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 				intent.setType( mime );
 			}
 
+			if( ShouldGrantPersistableUriPermission( getActivity() ) )
+				intent.addFlags( Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION );
+
 			if( title != null && title.length() > 0 )
 				intent.putExtra( Intent.EXTRA_TITLE, title );
 
@@ -133,6 +141,11 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 		}
 	}
 
+	public static boolean ShouldGrantPersistableUriPermission( Context context )
+	{
+		return GrantPersistableUriPermission && Build.VERSION.SDK_INT >= 33 && context.getApplicationInfo().targetSdkVersion >= 33;
+	}
+
 	@Override
 	public void onActivityResult( int requestCode, int resultCode, Intent data )
 	{
@@ -142,7 +155,7 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 		NativeGalleryMediaPickerResultFragment resultFragment = null;
 
 		if( mediaReceiver == null )
-			Log.d( "Unity", "NativeGalleryMediaPickerFragment.mediaReceiver became null!" );
+			Log.d( "Unity", "NativeGalleryMediaPickerFragment.mediaReceiver became null in onActivityResult!" );
 		else if( resultCode != Activity.RESULT_OK || data == null )
 		{
 			if( !selectMultiple )

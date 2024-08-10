@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.provider.OpenableColumns;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
@@ -50,9 +51,11 @@ public class NativeGalleryMediaPickerResultOperation
 		{
 			if( !selectMultiple || data.getClipData() == null )
 			{
-				unityResult = getPathFromURI( data.getData() );
-				if( unityResult == null || ( unityResult.length() > 0 && !( new File( unityResult ).exists() ) ) )
-					unityResult = "";
+				String _unityResult = getPathFromURI( data.getData() );
+				if( _unityResult != null && _unityResult.length() > 0 && new File( _unityResult ).exists() )
+					unityResult = _unityResult;
+
+				Log.d( "Unity", "NativeGalleryMediaPickerResultOperation: " + _unityResult );
 			}
 			else
 			{
@@ -73,6 +76,8 @@ public class NativeGalleryMediaPickerResultOperation
 						else
 							unityResult += ">" + _unityResult;
 					}
+
+					Log.d( "Unity", "NativeGalleryMediaPickerResultOperation: " + _unityResult );
 				}
 			}
 		}
@@ -106,7 +111,7 @@ public class NativeGalleryMediaPickerResultOperation
 		sentResult = true;
 
 		if( mediaReceiver == null )
-			Log.d( "Unity", "NativeGalleryMediaPickerResultOperation.mediaReceiver became null!" );
+			Log.d( "Unity", "NativeGalleryMediaPickerResultOperation.mediaReceiver became null in sendResultToUnity!" );
 		else
 		{
 			if( selectMultiple )
@@ -133,10 +138,14 @@ public class NativeGalleryMediaPickerResultOperation
 				inputStream = new FileInputStream( new File( path ) );
 				inputStream.read();
 
+				if( NativeGalleryMediaPickerFragment.ShouldGrantPersistableUriPermission( context ) )
+					context.getContentResolver().takePersistableUriPermission( uri, Intent.FLAG_GRANT_READ_URI_PERMISSION );
+
 				return path;
 			}
 			catch( Exception e )
 			{
+				Log.e( "Unity", "Media uri isn't accessible via File API: " + uri, e );
 			}
 			finally
 			{
@@ -214,7 +223,10 @@ public class NativeGalleryMediaPickerResultOperation
 		{
 			InputStream input = resolver.openInputStream( uri );
 			if( input == null )
+			{
+				Log.w( "Unity", "Couldn't open input stream: " + uri );
 				return null;
+			}
 
 			if( fileSize < 0 )
 			{
@@ -289,6 +301,7 @@ public class NativeGalleryMediaPickerResultOperation
 					savedFiles.add( fullName );
 				}
 
+				Log.d( "Unity", "Copied media from " + uri + " to: " + tempFile.getAbsolutePath() );
 				return tempFile.getAbsolutePath();
 			}
 			finally
