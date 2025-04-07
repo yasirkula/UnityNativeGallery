@@ -14,7 +14,7 @@ namespace NativeGalleryNamespace
 		{
 			this.callback = callback;
 			this.callbackMultiple = callbackMultiple;
-			callbackHelper = new GameObject( "NGCallbackHelper" ).AddComponent<NGCallbackHelper>();
+			callbackHelper = NGCallbackHelper.Create( true );
 		}
 
 		[UnityEngine.Scripting.Preserve]

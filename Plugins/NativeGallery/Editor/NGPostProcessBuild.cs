@@ -14,9 +14,6 @@ namespace NativeGalleryNamespace
 		private const string SAVE_PATH = "ProjectSettings/NativeGallery.json";
 
 		public bool AutomatedSetup = true;
-#if !UNITY_2018_1_OR_NEWER
-		public bool MinimumiOSTarget8OrAbove = false;
-#endif
 		public string PhotoLibraryUsageDescription = "The app requires access to Photos to interact with it.";
 		public string PhotoLibraryAdditionsUsageDescription = "The app requires access to Photos to save media to it.";
 		public bool DontAskLimitedPhotosPermissionAutomaticallyOnIos14 = true; // See: https://mackuba.eu/2020/07/07/photo-library-changes-ios-14/
@@ -51,7 +48,6 @@ namespace NativeGalleryNamespace
 			File.WriteAllText( SAVE_PATH, JsonUtility.ToJson( this, true ) );
 		}
 
-#if UNITY_2018_3_OR_NEWER
 		[SettingsProvider]
 		public static SettingsProvider CreatePreferencesGUI()
 		{
@@ -61,11 +57,7 @@ namespace NativeGalleryNamespace
 				keywords = new System.Collections.Generic.HashSet<string>() { "Native", "Gallery", "Android", "iOS" }
 			};
 		}
-#endif
 
-#if !UNITY_2018_3_OR_NEWER
-		[PreferenceItem( "Native Gallery" )]
-#endif
 		public static void PreferencesGUI()
 		{
 			EditorGUI.BeginChangeCheck();
@@ -73,9 +65,6 @@ namespace NativeGalleryNamespace
 			Instance.AutomatedSetup = EditorGUILayout.Toggle( "Automated Setup", Instance.AutomatedSetup );
 
 			EditorGUI.BeginDisabledGroup( !Instance.AutomatedSetup );
-#if !UNITY_2018_1_OR_NEWER
-			Instance.MinimumiOSTarget8OrAbove = EditorGUILayout.Toggle( "Deployment Target Is 8.0 Or Above", Instance.MinimumiOSTarget8OrAbove );
-#endif
 			Instance.PhotoLibraryUsageDescription = EditorGUILayout.DelayedTextField( "Photo Library Usage Description", Instance.PhotoLibraryUsageDescription );
 			Instance.PhotoLibraryAdditionsUsageDescription = EditorGUILayout.DelayedTextField( "Photo Library Additions Usage Description", Instance.PhotoLibraryAdditionsUsageDescription );
 			Instance.DontAskLimitedPhotosPermissionAutomaticallyOnIos14 = EditorGUILayout.Toggle( new GUIContent( "Don't Ask Limited Photos Permission Automatically", "See: https://mackuba.eu/2020/07/07/photo-library-changes-ios-14/. It's recommended to keep this setting enabled" ), Instance.DontAskLimitedPhotosPermissionAutomaticallyOnIos14 );
@@ -103,33 +92,11 @@ namespace NativeGalleryNamespace
 				PBXProject pbxProject = new PBXProject();
 				pbxProject.ReadFromFile( pbxProjectPath );
 
-#if UNITY_2019_3_OR_NEWER
 				string targetGUID = pbxProject.GetUnityFrameworkTargetGuid();
-#else
-				string targetGUID = pbxProject.TargetGuidByName( PBXProject.GetUnityTargetName() );
-#endif
-
-				// Minimum supported iOS version on Unity 2018.1 and later is 8.0
-#if !UNITY_2018_1_OR_NEWER
-				if( !Settings.Instance.MinimumiOSTarget8OrAbove )
-				{
-					pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-weak_framework Photos" );
-					pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-weak_framework PhotosUI" );
-					pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework AssetsLibrary" );
-					pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework MobileCoreServices" );
-					pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework ImageIO" );
-				}
-				else
-#endif
-				{
-					pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-weak_framework PhotosUI" );
-					pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework Photos" );
-					pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework MobileCoreServices" );
-					pbxProject.AddBuildProperty( targetGUID, "OTHER_LDFLAGS", "-framework ImageIO" );
-				}
-
-				pbxProject.RemoveFrameworkFromProject( targetGUID, "Photos.framework" );
-				pbxProject.RemoveFrameworkFromProject( targetGUID, "PhotosUI.framework" );
+				pbxProject.AddFrameworkToProject( targetGUID, "PhotosUI.framework", true );
+				pbxProject.AddFrameworkToProject( targetGUID, "Photos.framework", false );
+				pbxProject.AddFrameworkToProject( targetGUID, "MobileCoreServices.framework", false );
+				pbxProject.AddFrameworkToProject( targetGUID, "ImageIO.framework", false );
 
 				File.WriteAllText( pbxProjectPath, pbxProject.WriteToString() );
 

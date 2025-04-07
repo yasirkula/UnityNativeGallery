@@ -2,11 +2,8 @@
 using System.Globalization;
 using System.IO;
 using UnityEngine;
-#if UNITY_2018_4_OR_NEWER && !NATIVE_GALLERY_DISABLE_ASYNC_FUNCTIONS
 using System.Threading.Tasks;
-using Unity.Collections;
 using UnityEngine.Networking;
-#endif
 #if UNITY_ANDROID || UNITY_IOS
 using NativeGalleryNamespace;
 #endif
@@ -95,13 +92,10 @@ public static class NativeGallery
 	private static extern int _NativeGallery_CheckPermission( int readPermission, int permissionFreeMode );
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern int _NativeGallery_RequestPermission( int readPermission, int permissionFreeMode, int asyncMode );
+	private static extern void _NativeGallery_RequestPermission( int readPermission, int permissionFreeMode );
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
 	private static extern void _NativeGallery_ShowLimitedLibraryPicker();
-
-	[System.Runtime.InteropServices.DllImport( "__Internal" )]
-	private static extern int _NativeGallery_CanOpenSettings();
 
 	[System.Runtime.InteropServices.DllImport( "__Internal" )]
 	private static extern void _NativeGallery_OpenSettings();
@@ -178,74 +172,36 @@ public static class NativeGallery
 	// provided custom album
 	private const bool PermissionFreeMode = true;
 
-	public static Permission CheckPermission( PermissionType permissionType, MediaType mediaTypes )
+	public static bool CheckPermission( PermissionType permissionType, MediaType mediaTypes )
 	{
 #if !UNITY_EDITOR && UNITY_ANDROID
-		Permission result = (Permission) AJC.CallStatic<int>( "CheckPermission", Context, permissionType == PermissionType.Read, (int) mediaTypes );
-		if( result == Permission.Denied && (Permission) PlayerPrefs.GetInt( "NativeGalleryPermission", (int) Permission.ShouldAsk ) == Permission.ShouldAsk )
-			result = Permission.ShouldAsk;
-
-		return result;
+		return AJC.CallStatic<int>( "CheckPermission", Context, permissionType == PermissionType.Read, (int) mediaTypes ) == 1;
 #elif !UNITY_EDITOR && UNITY_IOS
-		return ProcessPermission( (Permission) _NativeGallery_CheckPermission( permissionType == PermissionType.Read ? 1 : 0, PermissionFreeMode ? 1 : 0 ) );
+		return ProcessPermission( (Permission) _NativeGallery_CheckPermission( permissionType == PermissionType.Read ? 1 : 0, PermissionFreeMode ? 1 : 0 ) ) == Permission.Granted;
 #else
-		return Permission.Granted;
-#endif
-	}
-
-	public static Permission RequestPermission( PermissionType permissionType, MediaType mediaTypes )
-	{
-		// Don't block the main thread if the permission is already granted
-		if( CheckPermission( permissionType, mediaTypes ) == Permission.Granted )
-			return Permission.Granted;
-
-#if !UNITY_EDITOR && UNITY_ANDROID
-		object threadLock = new object();
-		lock( threadLock )
-		{
-			NGPermissionCallbackAndroid nativeCallback = new NGPermissionCallbackAndroid( threadLock );
-
-			AJC.CallStatic( "RequestPermission", Context, nativeCallback, permissionType == PermissionType.Read, (int) mediaTypes, (int) Permission.ShouldAsk );
-
-			if( nativeCallback.Result == -1 )
-				System.Threading.Monitor.Wait( threadLock );
-
-			if( (Permission) nativeCallback.Result != Permission.ShouldAsk && PlayerPrefs.GetInt( "NativeGalleryPermission", -1 ) != nativeCallback.Result )
-			{
-				PlayerPrefs.SetInt( "NativeGalleryPermission", nativeCallback.Result );
-				PlayerPrefs.Save();
-			}
-
-			return (Permission) nativeCallback.Result;
-		}
-#elif !UNITY_EDITOR && UNITY_IOS
-		return ProcessPermission( (Permission) _NativeGallery_RequestPermission( permissionType == PermissionType.Read ? 1 : 0, PermissionFreeMode ? 1 : 0, 0 ) );
-#else
-		return Permission.Granted;
+		return true;
 #endif
 	}
 
 	public static void RequestPermissionAsync( PermissionCallback callback, PermissionType permissionType, MediaType mediaTypes )
 	{
 #if !UNITY_EDITOR && UNITY_ANDROID
-		NGPermissionCallbackAsyncAndroid nativeCallback = new NGPermissionCallbackAsyncAndroid( callback );
-		AJC.CallStatic( "RequestPermission", Context, nativeCallback, permissionType == PermissionType.Read, (int) mediaTypes, (int) Permission.ShouldAsk );
+		NGPermissionCallbackAndroid nativeCallback = new( callback );
+		AJC.CallStatic( "RequestPermission", Context, nativeCallback, permissionType == PermissionType.Read, (int) mediaTypes );
 #elif !UNITY_EDITOR && UNITY_IOS
 		NGPermissionCallbackiOS.Initialize( ( result ) => callback( ProcessPermission( result ) ) );
-		_NativeGallery_RequestPermission( permissionType == PermissionType.Read ? 1 : 0, PermissionFreeMode ? 1 : 0, 1 );
+		_NativeGallery_RequestPermission( permissionType == PermissionType.Read ? 1 : 0, PermissionFreeMode ? 1 : 0 );
 #else
 		callback( Permission.Granted );
 #endif
 	}
 
-#if UNITY_2018_4_OR_NEWER && !NATIVE_GALLERY_DISABLE_ASYNC_FUNCTIONS
 	public static Task<Permission> RequestPermissionAsync( PermissionType permissionType, MediaType mediaTypes )
 	{
 		TaskCompletionSource<Permission> tcs = new TaskCompletionSource<Permission>();
 		RequestPermissionAsync( ( permission ) => tcs.SetResult( permission ), permissionType, mediaTypes );
 		return tcs.Task;
 	}
-#endif
 
 	private static Permission ProcessPermission( Permission permission )
 	{
@@ -264,15 +220,6 @@ public static class NativeGallery
 #endif
 	}
 
-	public static bool CanOpenSettings()
-	{
-#if !UNITY_EDITOR && UNITY_IOS
-		return _NativeGallery_CanOpenSettings() == 1;
-#else
-		return true;
-#endif
-	}
-
 	public static void OpenSettings()
 	{
 #if !UNITY_EDITOR && UNITY_ANDROID
@@ -284,47 +231,47 @@ public static class NativeGallery
 	#endregion
 
 	#region Save Functions
-	public static Permission SaveImageToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null )
+	public static void SaveImageToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null )
 	{
-		return SaveToGallery( mediaBytes, album, filename, MediaType.Image, callback );
+		SaveToGallery( mediaBytes, album, filename, MediaType.Image, callback );
 	}
 
-	public static Permission SaveImageToGallery( string existingMediaPath, string album, string filename, MediaSaveCallback callback = null )
+	public static void SaveImageToGallery( string existingMediaPath, string album, string filename, MediaSaveCallback callback = null )
 	{
-		return SaveToGallery( existingMediaPath, album, filename, MediaType.Image, callback );
+		SaveToGallery( existingMediaPath, album, filename, MediaType.Image, callback );
 	}
 
-	public static Permission SaveImageToGallery( Texture2D image, string album, string filename, MediaSaveCallback callback = null )
+	public static void SaveImageToGallery( Texture2D image, string album, string filename, MediaSaveCallback callback = null )
 	{
 		if( image == null )
 			throw new ArgumentException( "Parameter 'image' is null!" );
 
 		if( filename.EndsWith( ".jpeg", StringComparison.OrdinalIgnoreCase ) || filename.EndsWith( ".jpg", StringComparison.OrdinalIgnoreCase ) )
-			return SaveToGallery( GetTextureBytes( image, true ), album, filename, MediaType.Image, callback );
+			SaveToGallery( GetTextureBytes( image, true ), album, filename, MediaType.Image, callback );
 		else if( filename.EndsWith( ".png", StringComparison.OrdinalIgnoreCase ) )
-			return SaveToGallery( GetTextureBytes( image, false ), album, filename, MediaType.Image, callback );
+			SaveToGallery( GetTextureBytes( image, false ), album, filename, MediaType.Image, callback );
 		else
-			return SaveToGallery( GetTextureBytes( image, false ), album, filename + ".png", MediaType.Image, callback );
+			SaveToGallery( GetTextureBytes( image, false ), album, filename + ".png", MediaType.Image, callback );
 	}
 
-	public static Permission SaveVideoToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null )
+	public static void SaveVideoToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null )
 	{
-		return SaveToGallery( mediaBytes, album, filename, MediaType.Video, callback );
+		SaveToGallery( mediaBytes, album, filename, MediaType.Video, callback );
 	}
 
-	public static Permission SaveVideoToGallery( string existingMediaPath, string album, string filename, MediaSaveCallback callback = null )
+	public static void SaveVideoToGallery( string existingMediaPath, string album, string filename, MediaSaveCallback callback = null )
 	{
-		return SaveToGallery( existingMediaPath, album, filename, MediaType.Video, callback );
+		SaveToGallery( existingMediaPath, album, filename, MediaType.Video, callback );
 	}
 
-	private static Permission SaveAudioToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null )
+	private static void SaveAudioToGallery( byte[] mediaBytes, string album, string filename, MediaSaveCallback callback = null )
 	{
-		return SaveToGallery( mediaBytes, album, filename, MediaType.Audio, callback );
+		SaveToGallery( mediaBytes, album, filename, MediaType.Audio, callback );
 	}
 
-	private static Permission SaveAudioToGallery( string existingMediaPath, string album, string filename, MediaSaveCallback callback = null )
+	private static void SaveAudioToGallery( string existingMediaPath, string album, string filename, MediaSaveCallback callback = null )
 	{
-		return SaveToGallery( existingMediaPath, album, filename, MediaType.Audio, callback );
+		SaveToGallery( existingMediaPath, album, filename, MediaType.Audio, callback );
 	}
 	#endregion
 
@@ -353,44 +300,44 @@ public static class NativeGallery
 #endif
 	}
 
-	public static Permission GetImageFromGallery( MediaPickCallback callback, string title = "", string mime = "image/*" )
+	public static void GetImageFromGallery( MediaPickCallback callback, string title = "", string mime = "image/*" )
 	{
-		return GetMediaFromGallery( callback, MediaType.Image, mime, title );
+		GetMediaFromGallery( callback, MediaType.Image, mime, title );
 	}
 
-	public static Permission GetVideoFromGallery( MediaPickCallback callback, string title = "", string mime = "video/*" )
+	public static void GetVideoFromGallery( MediaPickCallback callback, string title = "", string mime = "video/*" )
 	{
-		return GetMediaFromGallery( callback, MediaType.Video, mime, title );
+		GetMediaFromGallery( callback, MediaType.Video, mime, title );
 	}
 
-	public static Permission GetAudioFromGallery( MediaPickCallback callback, string title = "", string mime = "audio/*" )
+	public static void GetAudioFromGallery( MediaPickCallback callback, string title = "", string mime = "audio/*" )
 	{
-		return GetMediaFromGallery( callback, MediaType.Audio, mime, title );
+		GetMediaFromGallery( callback, MediaType.Audio, mime, title );
 	}
 
-	public static Permission GetMixedMediaFromGallery( MediaPickCallback callback, MediaType mediaTypes, string title = "" )
+	public static void GetMixedMediaFromGallery( MediaPickCallback callback, MediaType mediaTypes, string title = "" )
 	{
-		return GetMediaFromGallery( callback, mediaTypes, "*/*", title );
+		GetMediaFromGallery( callback, mediaTypes, "*/*", title );
 	}
 
-	public static Permission GetImagesFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "image/*" )
+	public static void GetImagesFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "image/*" )
 	{
-		return GetMultipleMediaFromGallery( callback, MediaType.Image, mime, title );
+		GetMultipleMediaFromGallery( callback, MediaType.Image, mime, title );
 	}
 
-	public static Permission GetVideosFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "video/*" )
+	public static void GetVideosFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "video/*" )
 	{
-		return GetMultipleMediaFromGallery( callback, MediaType.Video, mime, title );
+		GetMultipleMediaFromGallery( callback, MediaType.Video, mime, title );
 	}
 
-	public static Permission GetAudiosFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "audio/*" )
+	public static void GetAudiosFromGallery( MediaPickMultipleCallback callback, string title = "", string mime = "audio/*" )
 	{
-		return GetMultipleMediaFromGallery( callback, MediaType.Audio, mime, title );
+		GetMultipleMediaFromGallery( callback, MediaType.Audio, mime, title );
 	}
 
-	public static Permission GetMixedMediasFromGallery( MediaPickMultipleCallback callback, MediaType mediaTypes, string title = "" )
+	public static void GetMixedMediasFromGallery( MediaPickMultipleCallback callback, MediaType mediaTypes, string title = "" )
 	{
-		return GetMultipleMediaFromGallery( callback, mediaTypes, "*/*", title );
+		GetMultipleMediaFromGallery( callback, mediaTypes, "*/*", title );
 	}
 
 	public static bool IsMediaPickerBusy()
@@ -450,22 +397,27 @@ public static class NativeGallery
 	#endregion
 
 	#region Internal Functions
-	private static Permission SaveToGallery( byte[] mediaBytes, string album, string filename, MediaType mediaType, MediaSaveCallback callback )
+	private static void SaveToGallery( byte[] mediaBytes, string album, string filename, MediaType mediaType, MediaSaveCallback callback )
 	{
-		Permission result = RequestPermission( PermissionType.Write, mediaType );
-		if( result == Permission.Granted )
+		if( mediaBytes == null || mediaBytes.Length == 0 )
+			throw new ArgumentException( "Parameter 'mediaBytes' is null or empty!" );
+
+		if( album == null || album.Length == 0 )
+			throw new ArgumentException( "Parameter 'album' is null or empty!" );
+
+		if( filename == null || filename.Length == 0 )
+			throw new ArgumentException( "Parameter 'filename' is null or empty!" );
+
+		if( string.IsNullOrEmpty( Path.GetExtension( filename ) ) )
+			Debug.LogWarning( "'filename' doesn't have an extension, this might result in unexpected behaviour!" );
+
+		RequestPermissionAsync( ( permission ) =>
 		{
-			if( mediaBytes == null || mediaBytes.Length == 0 )
-				throw new ArgumentException( "Parameter 'mediaBytes' is null or empty!" );
-
-			if( album == null || album.Length == 0 )
-				throw new ArgumentException( "Parameter 'album' is null or empty!" );
-
-			if( filename == null || filename.Length == 0 )
-				throw new ArgumentException( "Parameter 'filename' is null or empty!" );
-
-			if( string.IsNullOrEmpty( Path.GetExtension( filename ) ) )
-				Debug.LogWarning( "'filename' doesn't have an extension, this might result in unexpected behaviour!" );
+			if( permission != Permission.Granted )
+			{
+				callback?.Invoke( false, null );
+				return;
+			}
 
 			string path = GetTemporarySavePath( filename );
 #if UNITY_EDITOR
@@ -475,32 +427,35 @@ public static class NativeGallery
 #endif
 
 			SaveToGalleryInternal( path, album, mediaType, callback );
-		}
-
-		return result;
+		}, PermissionType.Write, mediaType );
 	}
 
-	private static Permission SaveToGallery( string existingMediaPath, string album, string filename, MediaType mediaType, MediaSaveCallback callback )
+	private static void SaveToGallery( string existingMediaPath, string album, string filename, MediaType mediaType, MediaSaveCallback callback )
 	{
-		Permission result = RequestPermission( PermissionType.Write, mediaType );
-		if( result == Permission.Granted )
+		if( !File.Exists( existingMediaPath ) )
+			throw new FileNotFoundException( "File not found at " + existingMediaPath );
+
+		if( album == null || album.Length == 0 )
+			throw new ArgumentException( "Parameter 'album' is null or empty!" );
+
+		if( filename == null || filename.Length == 0 )
+			throw new ArgumentException( "Parameter 'filename' is null or empty!" );
+
+		if( string.IsNullOrEmpty( Path.GetExtension( filename ) ) )
 		{
-			if( !File.Exists( existingMediaPath ) )
-				throw new FileNotFoundException( "File not found at " + existingMediaPath );
+			string originalExtension = Path.GetExtension( existingMediaPath );
+			if( string.IsNullOrEmpty( originalExtension ) )
+				Debug.LogWarning( "'filename' doesn't have an extension, this might result in unexpected behaviour!" );
+			else
+				filename += originalExtension;
+		}
 
-			if( album == null || album.Length == 0 )
-				throw new ArgumentException( "Parameter 'album' is null or empty!" );
-
-			if( filename == null || filename.Length == 0 )
-				throw new ArgumentException( "Parameter 'filename' is null or empty!" );
-
-			if( string.IsNullOrEmpty( Path.GetExtension( filename ) ) )
+		RequestPermissionAsync( ( permission ) =>
+		{
+			if( permission != Permission.Granted )
 			{
-				string originalExtension = Path.GetExtension( existingMediaPath );
-				if( string.IsNullOrEmpty( originalExtension ) )
-					Debug.LogWarning( "'filename' doesn't have an extension, this might result in unexpected behaviour!" );
-				else
-					filename += originalExtension;
+				callback?.Invoke( false, null );
+				return;
 			}
 
 			string path = GetTemporarySavePath( filename );
@@ -511,9 +466,7 @@ public static class NativeGallery
 #endif
 
 			SaveToGalleryInternal( path, album, mediaType, callback );
-		}
-
-		return result;
+		}, PermissionType.Write, mediaType );
 	}
 
 	private static void SaveToGalleryInternal( string path, string album, MediaType mediaType, MediaSaveCallback callback )
@@ -579,11 +532,16 @@ public static class NativeGallery
 #endif
 	}
 
-	private static Permission GetMediaFromGallery( MediaPickCallback callback, MediaType mediaType, string mime, string title )
+	private static void GetMediaFromGallery( MediaPickCallback callback, MediaType mediaType, string mime, string title )
 	{
-		Permission result = RequestPermission( PermissionType.Read, mediaType );
-		if( result == Permission.Granted && !IsMediaPickerBusy() )
+		RequestPermissionAsync( ( permission ) =>
 		{
+			if( permission != Permission.Granted || IsMediaPickerBusy() )
+			{
+				callback?.Invoke( null );
+				return;
+			}
+
 #if UNITY_EDITOR
 			System.Collections.Generic.List<string> editorFilters = new System.Collections.Generic.List<string>( 4 );
 
@@ -631,16 +589,19 @@ public static class NativeGallery
 			if( callback != null )
 				callback( null );
 #endif
-		}
-
-		return result;
+		}, PermissionType.Read, mediaType );
 	}
 
-	private static Permission GetMultipleMediaFromGallery( MediaPickMultipleCallback callback, MediaType mediaType, string mime, string title )
+	private static void GetMultipleMediaFromGallery( MediaPickMultipleCallback callback, MediaType mediaType, string mime, string title )
 	{
-		Permission result = RequestPermission( PermissionType.Read, mediaType );
-		if( result == Permission.Granted && !IsMediaPickerBusy() )
+		RequestPermissionAsync( ( permission ) =>
 		{
+			if( permission != Permission.Granted || IsMediaPickerBusy() )
+			{
+				callback?.Invoke( null );
+				return;
+			}
+
 			if( CanSelectMultipleFilesFromGallery() )
 			{
 #if !UNITY_EDITOR && UNITY_ANDROID
@@ -665,9 +626,7 @@ public static class NativeGallery
 			}
 			else if( callback != null )
 				callback( null );
-		}
-
-		return result;
+		}, PermissionType.Read, mediaType );
 	}
 
 	private static byte[] GetTextureBytes( Texture2D texture, bool isJpeg )
@@ -736,7 +695,7 @@ public static class NativeGallery
 		}
 	}
 
-#if UNITY_2018_4_OR_NEWER && !NATIVE_GALLERY_DISABLE_ASYNC_FUNCTIONS
+#if UNITY_ANDROID
 	private static async Task<T> TryCallNativeAndroidFunctionOnSeparateThread<T>( Func<T> function )
 	{
 		T result = default( T );
@@ -822,7 +781,6 @@ public static class NativeGallery
 		return result;
 	}
 
-#if UNITY_2018_4_OR_NEWER && !NATIVE_GALLERY_DISABLE_ASYNC_FUNCTIONS
 	public static async Task<Texture2D> LoadImageAtPathAsync( string imagePath, int maxSize = -1, bool markTextureNonReadable = true )
 	{
 		if( string.IsNullOrEmpty( imagePath ) )
@@ -852,14 +810,8 @@ public static class NativeGallery
 			while( !asyncOperation.isDone )
 				await Task.Yield();
 
-#if UNITY_2020_1_OR_NEWER
 			if( www.result != UnityWebRequest.Result.Success )
-#else
-			if( www.isNetworkError || www.isHttpError )
-#endif
-			{
 				Debug.LogWarning( "Couldn't use UnityWebRequest to load image, falling back to LoadImage: " + www.error );
-			}
 			else
 				result = DownloadHandlerTexture.GetContent( www );
 		}
@@ -903,7 +855,6 @@ public static class NativeGallery
 
 		return result;
 	}
-#endif
 
 	public static Texture2D GetVideoThumbnail( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false )
 	{
@@ -924,7 +875,6 @@ public static class NativeGallery
 			return null;
 	}
 
-#if UNITY_2018_4_OR_NEWER && !NATIVE_GALLERY_DISABLE_ASYNC_FUNCTIONS
 	public static async Task<Texture2D> GetVideoThumbnailAsync( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true )
 	{
 		if( maxSize <= 0 )
@@ -945,7 +895,6 @@ public static class NativeGallery
 		else
 			return null;
 	}
-#endif
 
 	public static ImageProperties GetImageProperties( string imagePath )
 	{

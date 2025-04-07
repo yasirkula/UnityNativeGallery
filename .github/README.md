@@ -76,7 +76,7 @@ Make sure that you've set the **Write Permission** to **External (SDCard)** in *
 
 - **NativeGallery functions return Permission.Denied even though I've set "Write Permission" to "External (SDCard)"**
 
-Declare the `WRITE_EXTERNAL_STORAGE` permission manually in your [**Plugins/Android/AndroidManifest.xml** file](https://answers.unity.com/questions/982710/where-is-the-manifest-file-in-unity.html) with the `tools:node="replace"` attribute as follows: `<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="replace"/>` (you'll need to add the `xmlns:tools="http://schemas.android.com/tools"` attribute to the `<manifest ...>` element).
+Declare the `WRITE_EXTERNAL_STORAGE` permission manually in your **Plugins/Android/AndroidManifest.xml** with the `tools:node="replace"` attribute as follows: `<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="replace"/>`.
 
 - **Saving image/video doesn't work properly**
 
@@ -128,7 +128,7 @@ Make sure that the *filename* parameter of the Save function includes the file's
 
 `NativeGallery.IsMediaPickerBusy()`: returns *true* if the user is currently picking media from Gallery/Photos. In that case, another GetImageFromGallery, GetVideoFromGallery or GetAudioFromGallery request will simply be ignored.
 
-Almost all of these functions return a *NativeGallery.Permission* value. More details about it is available below.
+Most of these functions automatically call *NativeGallery.RequestPermissionAsync*. More details available below.
 
 ### C. Runtime Permissions
 
@@ -136,24 +136,20 @@ Beginning with *6.0 Marshmallow*, Android apps must request runtime permissions 
 
 There are two functions to handle permissions with this plugin:
 
-`NativeGallery.Permission NativeGallery.CheckPermission( PermissionType permissionType, MediaType mediaTypes )`: checks whether the app has access to Gallery/Photos or not. **PermissionType** can be either **Read** (for *GetImageFromGallery/GetVideoFromGallery* functions) or **Write** (for *SaveImageToGallery/SaveVideoToGallery* functions).
+`bool NativeGallery.CheckPermission( PermissionType permissionType, MediaType mediaTypes )`: checks whether the app has access to Gallery/Photos or not. **PermissionType** can be either **Read** (for *GetImageFromGallery/GetVideoFromGallery* functions) or **Write** (for *SaveImageToGallery/SaveVideoToGallery* functions).
 - **mediaTypes** determines for which media type(s) we're checking the permission for. Has no effect on iOS
+
+`void NativeGallery.RequestPermissionAsync( PermissionCallback callback, PermissionType permissionType, MediaType mediaTypes )`: requests permission to access Gallery/Photos from the user and returns the result asynchronously. It is recommended to show a brief explanation before asking the permission so that user understands why the permission is needed and doesn't click Deny or worse, "Don't ask again". Note that the SaveImageToGallery/SaveVideoToGallery and GetImageFromGallery/GetVideoFromGallery functions call RequestPermissionAsync internally and execute only if the permission is granted.
+- **PermissionCallback** takes `NativeGallery.Permission permission` parameter
 
 **NativeGallery.Permission** is an enum that can take 3 values: 
 - **Granted**: we have the permission to access Gallery/Photos
-- **ShouldAsk**: we don't have permission yet, but we can ask the user for permission via *RequestPermission* function (see below). On Android, as long as the user doesn't select "Don't ask again" while denying the permission, ShouldAsk is returned
+- **ShouldAsk**: permission is denied but we can ask the user for permission once again. On Android, as long as the user doesn't select "Don't ask again" while denying the permission, ShouldAsk is returned
 - **Denied**: we don't have permission and we can't ask the user for permission. In this case, user has to give the permission from Settings. This happens when user denies the permission on iOS (can't request permission again on iOS), when user selects "Don't ask again" while denying the permission on Android or when user is not allowed to give that permission (parental controls etc.)
 
-`NativeGallery.Permission NativeGallery.RequestPermission( PermissionType permissionType, MediaType mediaTypes )`: requests permission to access Gallery/Photos from the user and returns the result. It is recommended to show a brief explanation before asking the permission so that user understands why the permission is needed and doesn't click Deny or worse, "Don't ask again". Note that the SaveImageToGallery/SaveVideoToGallery and GetImageFromGallery/GetVideoFromGallery functions call RequestPermission internally and execute only if the permission is granted (the result of RequestPermission is also returned).
-
-`void NativeGallery.RequestPermissionAsync( PermissionCallback callback, PermissionType permissionType, MediaType mediaTypes )`: Asynchronous variant of *RequestPermission*. Unlike RequestPermission, this function doesn't freeze the app unnecessarily before the permission dialog is displayed. So it's recommended to call this function instead.
-- **PermissionCallback** takes `NativeGallery.Permission permission` parameter
-
-`Task<NativeGallery.Permission> NativeGallery.RequestPermissionAsync( PermissionType permissionType, MediaType mediaTypes )`: Another asynchronous variant of *RequestPermission* (requires Unity 2018.4 or later).
+`Task<NativeGallery.Permission> NativeGallery.RequestPermissionAsync( PermissionType permissionType, MediaType mediaTypes )`: Task-based overload of *RequestPermissionAsync*.
 
 `NativeGallery.OpenSettings()`: opens the settings for this app, from where the user can manually grant permission in case current permission state is *Permission.Denied* (on Android, the necessary permission is named *Storage* and on iOS, the necessary permission is named *Photos*).
-
-`bool NativeGallery.CanOpenSettings()`: on iOS versions prior to 8.0, opening settings from within app is not possible and in this case, this function returns *false*. Otherwise, it returns *true*.
 
 ### D. Utility Functions
 
@@ -169,14 +165,14 @@ There are two functions to handle permissions with this plugin:
 - **generateMipmaps** determines whether texture should have mipmaps or not
 - **linearColorSpace** determines whether texture should be in linear color space or sRGB color space
 
-`async Task<Texture2D> NativeGallery.LoadImageAtPathAsync( string imagePath, int maxSize = -1, bool markTextureNonReadable = true )`: asynchronous variant of *LoadImageAtPath* (requires Unity 2018.4 or later). Whether or not the returned Texture2D has mipmaps enabled depends on *UnityWebRequestTexture*'s implementation on the target Unity version. Note that it isn't possible to load multiple images simultaneously using this function.
+`async Task<Texture2D> NativeGallery.LoadImageAtPathAsync( string imagePath, int maxSize = -1, bool markTextureNonReadable = true )`: asynchronous variant of *LoadImageAtPath*. Whether or not the returned Texture2D has mipmaps enabled depends on *UnityWebRequestTexture*'s implementation on the target Unity version. Note that it isn't possible to load multiple images simultaneously using this function.
 
 `Texture2D NativeGallery.GetVideoThumbnail( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true, bool generateMipmaps = true, bool linearColorSpace = false )`: creates a Texture2D thumbnail from a video file and returns it. Returns *null*, if something goes wrong.
 - **maxSize** determines the maximum size of the returned Texture2D in pixels. Larger thumbnails will be down-scaled. If untouched, its value will be set to *SystemInfo.maxTextureSize*. It is recommended to set a proper maxSize for better performance
 - **captureTimeInSeconds** determines the frame of the video that the thumbnail is captured from. If untouched, OS will decide this value
 - **markTextureNonReadable** (see *LoadImageAtPath*)
 
-`async Task<Texture2D> NativeGallery.GetVideoThumbnailAsync( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true )`: asynchronous variant of *GetVideoThumbnail* (requires Unity 2018.4 or later). Whether or not the returned Texture2D has mipmaps enabled depends on *UnityWebRequestTexture*'s implementation on the target Unity version. Note that it isn't possible to generate multiple video thumbnails simultaneously using this function.
+`async Task<Texture2D> NativeGallery.GetVideoThumbnailAsync( string videoPath, int maxSize = -1, double captureTimeInSeconds = -1.0, bool markTextureNonReadable = true )`: asynchronous variant of *GetVideoThumbnail*. Whether or not the returned Texture2D has mipmaps enabled depends on *UnityWebRequestTexture*'s implementation on the target Unity version. Note that it isn't possible to generate multiple video thumbnails simultaneously using this function.
 
 ## EXAMPLE CODE
 
@@ -217,14 +213,6 @@ void Update()
 	}
 }
 
-// Example code doesn't use this function but it is here for reference. It's recommended to ask for permissions manually using the
-// RequestPermissionAsync methods prior to calling NativeGallery functions
-private async void RequestPermissionAsynchronously( NativeGallery.PermissionType permissionType, NativeGallery.MediaType mediaTypes )
-{
-	NativeGallery.Permission permission = await NativeGallery.RequestPermissionAsync( permissionType, mediaTypes );
-	Debug.Log( "Permission result: " + permission );
-}
-
 private IEnumerator TakeScreenshotAndSave()
 {
 	yield return new WaitForEndOfFrame();
@@ -234,9 +222,7 @@ private IEnumerator TakeScreenshotAndSave()
 	ss.Apply();
 
 	// Save the screenshot to Gallery/Photos
-	NativeGallery.Permission permission = NativeGallery.SaveImageToGallery( ss, "GalleryTest", "Image.png", ( success, path ) => Debug.Log( "Media save result: " + success + " " + path ) );
-
-	Debug.Log( "Permission result: " + permission );
+	NativeGallery.SaveImageToGallery( ss, "GalleryTest", "Image.png", ( success, path ) => Debug.Log( "Media save result: " + success + " " + path ) );
 
 	// To avoid memory leaks
 	Destroy( ss );
@@ -244,7 +230,7 @@ private IEnumerator TakeScreenshotAndSave()
 
 private void PickImage( int maxSize )
 {
-	NativeGallery.Permission permission = NativeGallery.GetImageFromGallery( ( path ) =>
+	NativeGallery.GetImageFromGallery( ( path ) =>
 	{
 		Debug.Log( "Image path: " + path );
 		if( path != null )
@@ -276,13 +262,11 @@ private void PickImage( int maxSize )
 			Destroy( texture, 5f );
 		}
 	} );
-
-	Debug.Log( "Permission result: " + permission );
 }
 
 private void PickVideo()
 {
-	NativeGallery.Permission permission = NativeGallery.GetVideoFromGallery( ( path ) =>
+	NativeGallery.GetVideoFromGallery( ( path ) =>
 	{
 		Debug.Log( "Video path: " + path );
 		if( path != null )
@@ -291,8 +275,6 @@ private void PickVideo()
 			Handheld.PlayFullScreenMovie( "file://" + path );
 		}
 	}, "Select a video" );
-
-	Debug.Log( "Permission result: " + permission );
 }
 
 // Example code doesn't use this function but it is here for reference
@@ -300,7 +282,7 @@ private void PickImageOrVideo()
 {
 	if( NativeGallery.CanSelectMultipleMediaTypesFromGallery() )
 	{
-		NativeGallery.Permission permission = NativeGallery.GetMixedMediaFromGallery( ( path ) =>
+		NativeGallery.GetMixedMediaFromGallery( ( path ) =>
 		{
 			Debug.Log( "Media path: " + path );
 			if( path != null )
@@ -314,8 +296,6 @@ private void PickImageOrVideo()
 				}
 			}
 		}, NativeGallery.MediaType.Image | NativeGallery.MediaType.Video, "Select an image or video" );
-
-		Debug.Log( "Permission result: " + permission );
 	}
 }
 ```

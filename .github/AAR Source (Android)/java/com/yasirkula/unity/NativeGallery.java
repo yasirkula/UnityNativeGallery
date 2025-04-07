@@ -363,17 +363,11 @@ public class NativeGallery
 	}
 
 	// Credit: https://github.com/Over17/UnityAndroidPermissions/blob/0dca33e40628f1f279decb67d901fd444b409cd7/src/UnityAndroidPermissions/src/main/java/com/unity3d/plugin/UnityAndroidPermissions.java
-	public static void RequestPermission( Context context, final NativeGalleryPermissionReceiver permissionReceiver, final boolean readPermission, final int mediaType, final int lastCheckResult )
+	public static void RequestPermission( Context context, final NativeGalleryPermissionReceiver permissionReceiver, final boolean readPermission, final int mediaType )
 	{
 		if( CheckPermission( context, readPermission, mediaType ) == 1 )
 		{
 			permissionReceiver.OnPermissionResult( 1 );
-			return;
-		}
-
-		if( lastCheckResult == 0 ) // If user clicked "Don't ask again" before, don't bother asking them again
-		{
-			permissionReceiver.OnPermissionResult( 0 );
 			return;
 		}
 
