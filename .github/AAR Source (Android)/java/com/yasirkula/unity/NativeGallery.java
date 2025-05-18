@@ -160,7 +160,7 @@ public class NativeGallery
 				{
 					try
 					{
-						if( NativeGalleryUtils.WriteFileToStream( originalFile, context.getContentResolver().openOutputStream( uri ) ) )
+						if( NativeGalleryUtils.WriteFileToStream( originalFile, context.getContentResolver().openOutputStream( uri, "rwt" ) ) )
 						{
 							values.put( MediaStore.MediaColumns.IS_PENDING, false );
 							context.getContentResolver().update( uri, values, null, null );
