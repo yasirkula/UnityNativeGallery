@@ -1,0 +1,50 @@
+// FirebaseAuthManager.cs
+using System;
+using Firebase.Auth;
+using UnityEngine;
+using System.Threading.Tasks;
+
+public class FirebaseAuthManager : MonoBehaviour
+{
+    public static FirebaseAuthManager Instance;
+    FirebaseAuth auth;
+    FirebaseUser currentUser;
+
+    void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
+    async void Start()
+    {
+        Firebase.FirebaseApp.CheckAndFixDependenciesAsync().ContinueWith(task => {
+            var status = task.Result;
+            if (status == Firebase.DependencyStatus.Available)
+            {
+                auth = FirebaseAuth.DefaultInstance;
+            }
+            else Debug.LogError("Firebase deps missing: " + status);
+        });
+    }
+
+    public void SignUpWithEmail(string email, string pass, Action<string> onComplete)
+    {
+        auth.CreateUserWithEmailAndPasswordAsync(email, pass).ContinueWith(t => {
+            if (t.IsFaulted || t.IsCanceled) onComplete?.Invoke("ERROR:" + t.Exception?.Flatten().Message);
+            else { currentUser = t.Result; onComplete?.Invoke(null); }
+        });
+    }
+
+    public void SignInWithEmail(string email, string pass, Action<string> onComplete)
+    {
+        auth.SignInWithEmailAndPasswordAsync(email, pass).ContinueWith(t => {
+            if (t.IsFaulted || t.IsCanceled) onComplete?.Invoke("ERROR:" + t.Exception?.Flatten().Message);
+            else { currentUser = t.Result; onComplete?.Invoke(null); }
+        });
+    }
+
+    public string GetUid() => currentUser?.UserId;
+    public string GetToken() => auth?.CurrentUser?.GetIdTokenAsync().Result;
+    public void SignOut() => auth.SignOut();
+}
