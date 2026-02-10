@@ -30,6 +30,7 @@ public class NativeGalleryUtils
 {
 	private static String secondaryStoragePath = null;
 	private static int isXiaomiOrMIUI = 0; // 1: true, -1: false
+	private static int isMeizu = 0; // 1: true, -1: false
 
 	public static boolean IsXiaomiOrMIUI()
 	{
@@ -83,6 +84,14 @@ public class NativeGalleryUtils
 				}
 			}
 		}
+	}
+
+	public static boolean IsMeizu()
+	{
+		if( isMeizu == 0 )
+			isMeizu = android.os.Build.MANUFACTURER.equalsIgnoreCase( "meizu" ) ? 1 : -1;
+
+		return isMeizu == 1;
 	}
 
 	// Credit: https://stackoverflow.com/a/36714242/2373034

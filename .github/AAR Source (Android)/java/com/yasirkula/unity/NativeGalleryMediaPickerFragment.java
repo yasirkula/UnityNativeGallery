@@ -128,7 +128,7 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 			try
 			{
 				//  MIUI devices have issues with Intent.createChooser on at least Android 11 (https://stackoverflow.com/questions/67785661/taking-and-picking-photos-on-poco-x3-with-android-11-does-not-work)
-				if( useDefaultGalleryApp || ( Build.VERSION.SDK_INT == 30 && NativeGalleryUtils.IsXiaomiOrMIUI() ) )
+				if( useDefaultGalleryApp || ( Build.VERSION.SDK_INT == 30 && NativeGalleryUtils.IsXiaomiOrMIUI() ) || NativeGalleryUtils.IsMeizu() )
 					startActivityForResult( intent, MEDIA_REQUEST_CODE );
 				else
 					startActivityForResult( Intent.createChooser( intent, title ), MEDIA_REQUEST_CODE );
