@@ -31,6 +31,7 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 	public static boolean showProgressbar = true; // When enabled, a progressbar will be displayed while selected file(s) are copied (if necessary) to the destination directory
 	public static boolean useDefaultGalleryApp = false; // false: Intent.createChooser is used to pick the Gallery app
 	public static boolean GrantPersistableUriPermission = false; // When enabled, on newest Android versions, picked file can still be accessed after the app is restarted. Note that there's a 512-file hard limit: https://issuetracker.google.com/issues/149315521#comment7
+	public static boolean forceFocusUnityActivityOnComplete = false; // When enabled, the Unity activity will forcefully be focused after a file is picked. Added for VR compatibility: https://github.com/yasirkula/UnityNativeFilePicker/issues/59#issuecomment-4815746727
 
 	private final NativeGalleryMediaReceiver mediaReceiver;
 	private boolean selectMultiple;
@@ -151,6 +152,14 @@ public class NativeGalleryMediaPickerFragment extends Fragment
 	{
 		if( requestCode != MEDIA_REQUEST_CODE )
 			return;
+
+		if( forceFocusUnityActivityOnComplete )
+		{
+			Intent intent = new Intent( getContext(), getContext().getClass() );
+			intent.addFlags( Intent.FLAG_ACTIVITY_REORDER_TO_FRONT );
+			startActivity( intent );
+			Log.d( "Unity", "NativeGallery used FLAG_ACTIVITY_REORDER_TO_FRONT to bring Unity activity to front." );
+		}
 
 		NativeGalleryMediaPickerResultFragment resultFragment = null;
 
