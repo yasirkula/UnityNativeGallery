@@ -53,7 +53,7 @@ Only Android & iOS platforms are supported. Editor functionality is for preview 
 
 - **Plugin doesn't work in VR**
 
-Try calling this code in an Awake or Start function: https://github.com/yasirkula/UnityNativeFilePicker/issues/59#issuecomment-4842209624
+Try calling this code in an Awake or Start function: https://github.com/yasirkula/UnityNativeGallery/issues/356#issuecomment-4830873945
 
 - **Android build fails with error message "D8: java.lang.NullPointerException Failed to transform NativeGallery-.aar"**
 
