@@ -51,6 +51,10 @@ You can't. On iOS, these files are stored in an internal directory that we have 
 
 Only Android & iOS platforms are supported. Editor functionality is for preview purposes only and uses Unity's [Editor-only API](https://docs.unity3d.com/ScriptReference/EditorUtility.OpenFilePanelWithFilters.html).
 
+- **Plugin doesn't work in VR**
+
+Try calling this code in an Awake or Start function: https://github.com/yasirkula/UnityNativeFilePicker/issues/59#issuecomment-4842209624
+
 - **Android build fails with error message "D8: java.lang.NullPointerException Failed to transform NativeGallery-.aar"**
 
 The plugin is using "Gradle version" `7.5.1` and "Android Gradle plug-in version" `7.4.2`. Make sure your Unity version is compatible: https://docs.unity3d.com/2021.3/Documentation/Manual/android-gradle-overview.html
