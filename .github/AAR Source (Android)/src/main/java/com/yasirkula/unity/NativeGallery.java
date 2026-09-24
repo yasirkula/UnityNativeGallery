@@ -40,6 +40,7 @@ public class NativeGallery
 	public static boolean overwriteExistingMedia = false;
 	public static boolean mediaSaveOmitDCIM = false; // If set to true, 'directoryName' on Android 29+ must start with either "DCIM/" or ["Pictures/", "Movies/", "Music/", "Alarms/", "Notifications/", "Audiobooks/", "Podcasts/", "Ringtones/"]
 	public static boolean PermissionFreeMode = false; // true: Permissions for reading/writing media elements won't be requested
+	public static int IOBufferSize = 262144; // 256 KB by default
 
 	public static String SaveMedia( Context context, int mediaType, String filePath, String directoryName )
 	{

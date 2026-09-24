@@ -1,4 +1,4 @@
-= Native Gallery for Android & iOS (v1.9.4) =
+= Native Gallery for Android & iOS (v1.9.5) =
 
 Documentation: https://github.com/yasirkula/UnityNativeGallery
 FAQ: https://github.com/yasirkula/UnityNativeGallery#faq

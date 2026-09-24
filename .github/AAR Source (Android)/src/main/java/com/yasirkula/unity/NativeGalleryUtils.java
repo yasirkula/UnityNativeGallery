@@ -268,7 +268,7 @@ public class NativeGalleryUtils
 			InputStream in = new FileInputStream( file );
 			try
 			{
-				byte[] buf = new byte[1024];
+				byte[] buf = new byte[NativeGallery.IOBufferSize];
 				int len;
 				while( ( len = in.read( buf ) ) > 0 )
 					out.write( buf, 0, len );

@@ -264,7 +264,7 @@ public class NativeGalleryMediaPickerResultOperation
 				output = new FileOutputStream( tempFile, false );
 				progress = ( fileSize > 0 ) ? 0 : -1;
 
-				byte[] buf = new byte[4096];
+				byte[] buf = new byte[NativeGallery.IOBufferSize];
 				int len;
 				while( ( len = input.read( buf ) ) > 0 )
 				{
